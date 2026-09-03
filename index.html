@@ -1,1 +1,421 @@
-<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#111111"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="ResumeFlow"><link rel="manifest" href="manifest.json"><title>ResumeFlow V1.1</title><link rel="stylesheet" href="style.css"></head><body><div class="app"><header class="top"><div class="brand">ResumeFlow <span>V1.1</span></div><div class="save" id="saveState">本地自动保存</div><div class="spacer"></div><button id="demoBtn">加载示例</button><button class="primary" id="pdfBtn">导出 PDF</button></header><div class="main"><aside class="left"><h3>① 导入简历</h3><div class="drop" id="drop"><strong>拖入 TXT / MD / JSON</strong><br><span class="hint">也可以直接粘贴简历内容</span><br><br><input id="file" type="file" accept=".txt,.md,.json,text/plain,application/json" hidden><button id="fileBtn">选择文件</button></div><div class="photo-panel"><h3>② 添加证件照</h3><div class="photo-row"><div id="photoPreview" class="photo-preview"><span>证件照</span></div><div class="photo-actions"><input id="photoFile" type="file" accept="image/jpeg,image/png,image/webp" hidden><button id="photoBtn">选择照片</button><button id="removePhotoBtn" disabled>移除</button></div></div><div class="photo-note">JPG / PNG / WebP；仅保存在本机浏览器，并会随 PDF 一起导出。</div></div><textarea id="source" placeholder="把我给你的定向简历粘贴到这里……"></textarea><div class="actions"><button id="renderBtn">生成预览</button><button id="clearBtn">清空</button></div><div class="footer-note">V1.1：支持 Markdown 简历自动识别、证件照、本地保存和 A4 PDF 导出。</div></aside><main class="center"><div id="paper" class="paper"></div></main><aside class="right"><h3>③ 选择模板</h3><div class="template"><button class="active" data-t="classic">技术专业</button><button data-t="modern">大厂简洁</button><button data-t="sidebar">左右栏</button><button data-t="executive">高级商务</button></div><h3>④ 版式</h3><div class="control"><label>字体</label><select id="font"><option value="pingfang">苹方 / PingFang SC</option><option value="yahei">微软雅黑</option><option value="system">系统默认</option></select></div><div class="control"><label>正文大小</label><div class="range"><input id="size" type="range" min="10" max="15" step=".5" value="13"><span id="sizeVal">13</span></div></div><div class="control"><label>预览缩放</label><div class="range"><input id="zoom" type="range" min=".55" max="1" step=".05" value=".8"><span id="zoomVal">80%</span></div></div><div class="hint">PDF 导出时会恢复 A4 原始比例。</div></aside></div></div><script src="app.js"></script></body></html>
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#183B56">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="ResumeFlow">
+
+<link rel="manifest" href="manifest.json">
+
+<title>ResumeFlow V1.2</title>
+
+<link rel="stylesheet" href="style.css?v=1.2">
+</head>
+
+<body>
+
+<div class="app">
+
+<header class="top">
+
+  <div class="brand">
+    ResumeFlow <span>V1.2</span>
+  </div>
+
+  <div class="save" id="saveState">
+    本地自动保存
+  </div>
+
+  <div class="spacer"></div>
+
+  <button id="demoBtn">
+    加载示例
+  </button>
+
+  <button class="primary" id="pdfBtn">
+    导出 PDF
+  </button>
+
+</header>
+
+
+<div class="main">
+
+
+<!-- ================= 左侧：简历输入 ================= -->
+
+<aside class="left">
+
+<h3>① 导入简历</h3>
+
+<div class="drop" id="drop">
+
+  <strong>拖入 TXT / MD / JSON</strong>
+
+  <br>
+
+  <span class="hint">
+    也可以直接粘贴简历内容
+  </span>
+
+  <br><br>
+
+  <input
+    id="file"
+    type="file"
+    accept=".txt,.md,.json,text/plain,application/json"
+    hidden
+  >
+
+  <button id="fileBtn">
+    选择文件
+  </button>
+
+</div>
+
+
+<!-- ================= 证件照 ================= -->
+
+<div class="photo-panel">
+
+<h3>② 证件照</h3>
+
+<div class="photo-row">
+
+  <div
+    id="photoPreview"
+    class="photo-preview"
+  >
+    <span>证件照</span>
+  </div>
+
+
+  <div class="photo-actions">
+
+    <input
+      id="photoFile"
+      type="file"
+      accept="image/jpeg,image/png,image/webp"
+      hidden
+    >
+
+    <button id="photoBtn">
+      选择照片
+    </button>
+
+    <button
+      id="removePhotoBtn"
+      disabled
+    >
+      移除
+    </button>
+
+  </div>
+
+</div>
+
+<div class="photo-note">
+  仅保存在本机浏览器，随 PDF 导出。
+</div>
+
+</div>
+
+
+<!-- ================= Markdown 输入 ================= -->
+
+<textarea
+  id="source"
+  placeholder="把我给你的定向简历粘贴到这里……"
+></textarea>
+
+
+<div class="actions">
+
+  <button id="renderBtn">
+    生成预览
+  </button>
+
+  <button id="clearBtn">
+    清空
+  </button>
+
+</div>
+
+
+<div class="footer-note">
+
+V1.2：专业模板、主题色、分页模式、证件照布局与自动更新。
+
+</div>
+
+</aside>
+
+
+
+<!-- ================= 中间：A4预览 ================= -->
+
+<main class="center">
+
+  <div id="paper" class="paper"></div>
+
+</main>
+
+
+
+<!-- ================= 右侧：模板设置 ================= -->
+
+<aside class="right">
+
+<h3>③ 模板</h3>
+
+<div
+  class="template"
+  id="templates"
+>
+
+  <button
+    class="active"
+    data-t="tech"
+  >
+    技术经典
+  </button>
+
+  <button data-t="blue">
+    工程师蓝
+  </button>
+
+  <button data-t="minimal">
+    极简黑白
+  </button>
+
+  <button data-t="terminal">
+    代码终端
+  </button>
+
+  <button data-t="grayblue">
+    科技灰蓝
+  </button>
+
+  <button data-t="stripe">
+    左侧色带
+  </button>
+
+  <button data-t="business">
+    商务技术
+  </button>
+
+  <button data-t="photo">
+    证件照技术
+  </button>
+
+</div>
+
+
+
+<!-- ================= 主题色 ================= -->
+
+<h3>④ 主题色</h3>
+
+<div
+  class="themes"
+  id="themes"
+>
+
+  <button
+    data-theme="black"
+    class="theme active"
+  >
+    黑白
+  </button>
+
+  <button
+    data-theme="blue"
+    class="theme"
+  >
+    深蓝
+  </button>
+
+  <button
+    data-theme="cyan"
+    class="theme"
+  >
+    科技蓝
+  </button>
+
+  <button
+    data-theme="green"
+    class="theme"
+  >
+    墨绿
+  </button>
+
+  <button
+    data-theme="gray"
+    class="theme"
+  >
+    深灰
+  </button>
+
+  <button
+    data-theme="wine"
+    class="theme"
+  >
+    酒红
+  </button>
+
+</div>
+
+
+
+<!-- ================= 版式 ================= -->
+
+<h3>⑤ 版式</h3>
+
+
+<div class="control">
+
+<label>
+  分页模式
+</label>
+
+<select id="pages">
+
+<option value="auto">
+  自动
+</option>
+
+<option value="one">
+  一页
+</option>
+
+<option value="two">
+  两页
+</option>
+
+</select>
+
+</div>
+
+
+
+<div class="control">
+
+<label>
+  证件照
+</label>
+
+<select id="photoMode">
+
+<option value="show">
+  显示
+</option>
+
+<option value="hide">
+  隐藏
+</option>
+
+</select>
+
+</div>
+
+
+
+<div class="control">
+
+<label>
+  字体
+</label>
+
+<select id="font">
+
+<option value="pingfang">
+  苹方 / PingFang SC
+</option>
+
+<option value="yahei">
+  微软雅黑
+</option>
+
+<option value="system">
+  系统默认
+</option>
+
+</select>
+
+</div>
+
+
+
+<div class="control">
+
+<label>
+  正文大小
+</label>
+
+<div class="range">
+
+<input
+  id="size"
+  type="range"
+  min="10"
+  max="15"
+  step=".5"
+  value="13"
+>
+
+<span id="sizeVal">
+  13
+</span>
+
+</div>
+
+</div>
+
+
+
+<div class="control">
+
+<label>
+  预览缩放
+</label>
+
+<div class="range">
+
+<input
+  id="zoom"
+  type="range"
+  min=".55"
+  max="1"
+  step=".05"
+  value=".8"
+>
+
+<span id="zoomVal">
+  80%
+</span>
+
+</div>
+
+</div>
+
+
+<div class="hint">
+
+核心模板均为单栏、可选文本、ATS 友好；PDF 导出恢复 A4 原始比例。
+
+</div>
+
+</aside>
+
+
+</div>
+
+</div>
+
+
+<script src="app.js?v=1.2"></script>
+
+</body>
+</html>
