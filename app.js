@@ -1,32 +1,27 @@
 /* =========================================================
-   ResumeFlow V1.2.3
-   Stable Edition
+   ResumeFlow V1.2.4
    ---------------------------------------------------------
-   本版本只做一个核心修复：
-   公司 / 项目标题与其对应内容严格按原始顺序渲染。
+   完整版 app.js
 
-   同时保留：
-   - MD / TXT / JSON 导入
-   - 证件照
-   - 模板切换
-   - 主题色
-   - 一页 / 两页 / 自动
-   - 字体 / 字号 / 缩放
-   - PDF 打印
-   - localStorage
-   - Safari / iOS
+   本版本：
+   1. 修复公司 / 项目标题与对应内容错位
+   2. 正文字号支持 10 ~ 18px
+   3. PDF 使用当前选择字号，不再强制 10.5pt
+   4. 保留 MD / TXT / JSON
+   5. 保留证件照
+   6. 保留模板 / 主题 / 分页 / 字体 / 缩放
+   7. 保留 localStorage
+   8. 保留 Safari / iOS / PWA
 ========================================================= */
 
 (() => {
   "use strict";
 
-  const VERSION = "1.2.3";
+  const VERSION = "1.2.4";
 
-  const STORAGE = {
-    resume: "resumeflow-resume-v122",
-    state: "resumeflow-state-v122",
-    photo: "resumeflow-photo-v122"
-  };
+  /* =======================================================
+     DOM
+  ======================================================= */
 
   const $ = id => document.getElementById(id);
 
@@ -58,26 +53,73 @@
   const zoom = $("zoom");
   const zoomVal = $("zoomVal");
 
+  /* =======================================================
+     STORAGE
+  ======================================================= */
+
+  const STORAGE = {
+    resume: "resumeflow-resume-v124",
+    state: "resumeflow-state-v124",
+    photo: "resumeflow-photo-v124"
+  };
+
+  /* =======================================================
+     DEFAULT STATE
+  ======================================================= */
+
   const DEFAULT_STATE = {
     template: "tech",
     theme: "blue",
-    pageMode: "one",
+    pageMode: "auto",
     showPhoto: true,
     font: "pingfang",
     fontSize: 13,
     zoom: 0.8
   };
 
-  let state = { ...DEFAULT_STATE };
+  let state = {
+    ...DEFAULT_STATE
+  };
+
+  /* =======================================================
+     THEME
+  ======================================================= */
 
   const THEMES = {
-    black: { main: "#222222", light: "#f2f2f2" },
-    blue: { main: "#17365D", light: "#eef4fa" },
-    cyan: { main: "#1677FF", light: "#edf5ff" },
-    green: { main: "#216E5B", light: "#edf7f3" },
-    gray: { main: "#555B66", light: "#f2f3f5" },
-    wine: { main: "#7A3030", light: "#faf0f0" }
+    black: {
+      main: "#222222",
+      light: "#f2f2f2"
+    },
+
+    blue: {
+      main: "#17365D",
+      light: "#eef4fa"
+    },
+
+    cyan: {
+      main: "#1677FF",
+      light: "#edf5ff"
+    },
+
+    green: {
+      main: "#216E5B",
+      light: "#edf7f3"
+    },
+
+    gray: {
+      main: "#555B66",
+      light: "#f2f3f5"
+    },
+
+    wine: {
+      main: "#7A3030",
+      light: "#faf0f0"
+    }
   };
+
+  /* =======================================================
+     TEMPLATES
+  ======================================================= */
 
   const TEMPLATE_LIST = [
     "tech",
@@ -90,33 +132,71 @@
     "photo"
   ];
 
+  /* =======================================================
+     SECTION ALIASES
+  ======================================================= */
+
   const SECTION_ALIASES = {
+
     summary: [
-      "个人优势", "个人简介", "个人概述", "简介",
-      "summary", "profile"
+      "个人优势",
+      "个人简介",
+      "个人概述",
+      "简介",
+      "summary",
+      "profile"
     ],
+
     skills: [
-      "核心技能", "专业技能", "技能", "技术栈",
-      "skills", "technical skills"
+      "核心技能",
+      "专业技能",
+      "技能",
+      "技术栈",
+      "skills",
+      "technical skills"
     ],
+
     experience: [
-      "工作经历", "工作经验", "职业经历", "工作履历",
-      "experience", "work experience"
+      "工作经历",
+      "工作经验",
+      "职业经历",
+      "工作履历",
+      "experience",
+      "work experience"
     ],
+
     projects: [
-      "项目经历", "项目经验", "项目",
-      "projects", "project experience"
+      "项目经历",
+      "项目经验",
+      "项目",
+      "projects",
+      "project experience"
     ],
+
     education: [
-      "教育背景", "教育经历", "学历", "education"
+      "教育背景",
+      "教育经历",
+      "学历",
+      "education"
     ],
+
     certificates: [
-      "证书", "资格证书", "certificates"
+      "证书",
+      "资格证书",
+      "certificates"
     ],
+
     awards: [
-      "获奖经历", "奖项", "荣誉", "awards"
+      "获奖经历",
+      "奖项",
+      "荣誉",
+      "awards"
     ]
   };
+
+  /* =======================================================
+     DEMO
+  ======================================================= */
 
   const DEMO_MD = `# 李思杏
 
@@ -130,7 +210,7 @@ ADAS软件工程师
 - 熟悉需求分析、软件设计、编码、联调、测试、标定和问题闭环。
 - 熟悉C、AUTOSAR Classic、SWC/RTE、CAN、CANoe/CANape及DBC。
 - 具备车载ECU应用层软件开发经验。
-- 了解RTOS/OS调度、MCU及常用外设基础。
+- 具备CAN数据分析、MATLAB脚本开发及实车问题定位经验。
 
 ## 核心技能
 
@@ -143,46 +223,80 @@ ADAS软件工程师
 
 ## 工作经历
 
-### 安智杰科技有限公司
+### 深圳安智杰科技有限公司成都分公司
 
-**ADAS软件工程师｜2022.02 – 2026.06**
+**软件工程师｜2022.02 – 2025.08**
 
-- 负责L2级ADAS功能的软件开发与维护，主要负责ACC及TSR模块。
-- 负责ACC纵向控制算法开发，包括期望加速度、前馈扭矩、PID反馈及扭矩请求计算。
-- 基于CAN信号进行问题复现与数据分析，定位控制延迟、加速度波动及制动能力等问题。
-- 使用MATLAB编写数据分析脚本，对车辆速度、实际加速度、扭矩请求及系统状态进行分析。
-- 负责算法参数标定、测试验证及版本发布支持。
-- 参与不同车型ADAS软件适配及量产项目开发。
+- 参与主机厂L2智能驾驶项目开发，负责ACC应用层软件、功能状态机及纵向控制相关模块。
+- 参与需求分析、软件设计、编码实现、系统联调、实车测试和量产问题闭环。
+- 负责ACC调试监测数据外发，完成监测变量缩放、偏移、编码及调试DBC维护。
+- 基于CANoe完成车辆及ADAS信号采集、解析和分析。
+- 使用CANape进行在线标定并保存MF4数据，结合MATLAB分析期望加速度、实际加速度、控制请求及车辆响应。
+- 早期FCW开发阶段基于C++、Qt开发前视摄像头网口采数上位机。
+
+### 源泰感科技（苏州）有限公司
+
+**ADAS软件工程师｜2025.09 – 2026.06**
+
+- 独立负责轻型商用车L2 ACC、TSR应用层软件开发。
+- 覆盖需求理解、软件实现、SWC/RTE集成、联调、标定、测试及版本发布前问题闭环。
+- 基于AUTOSAR Classic进行应用层SWC开发及RTE接口数据交互。
+- 负责ACC状态机及纵向控制相关功能调试。
+- 使用CANape、i-Jet、MF4、MATLAB开展测量、标定、数据采集、波形分析和问题验证。
+- 针对弯道限速功能，分析车道线半径输入抖动，采用滑动窗口及抑制滤波优化弯道半径处理逻辑。
 
 ## 项目经历
 
-### L2 ACC纵向控制系统
+### 轻型商用车 L2 ACC 与 TSR 项目
 
 **2025.09 – 2026.06**
 
-- 负责轻型商用车L2 ACC软件模块开发及维护。
-- 建立“期望加速度 → 前馈扭矩 → PID反馈 → 总扭矩请求”的纵向控制链路。
-- 针对加速度响应延迟及控制振荡问题进行CAN数据采集、MATLAB分析和参数优化。
-- 分析车辆负载变化对负扭矩及制动减速度能力的影响。
-- 完成ACC加减速、跟车、停车及制动能力相关测试验证。
+- 独立负责ACC、TSR应用层软件开发及集成。
+- 梳理ACC纵向控制链路，围绕期望加速度、实际加速度、前馈扭矩、反馈扭矩、总扭矩请求及车辆实际响应开展数据分析。
+- 分析再生制动、XBR以及MIX、TORQUE、ACCEL控制模式。
+- 针对跟停顿挫、起步顿挫、跟停后溜等问题开展定位、修改和验证。
+- 分析目标切入场景中的目标ID、目标距离、相对运动及TTC信息。
+- 针对ACC控制误抑制、静止状态激活不可用、Resume设定速度异常等边界场景进行问题分析和验证。
+- 针对弯道限速处理车道线半径输入，采用滑动窗口及抑制滤波。
+- 使用CANape、i-Jet、MF4、MATLAB完成实车数据采集、波形分析、问题复现、修改验证和回归检查。
 
-### TSR交通标志识别
+### 乘用车 L2 ACC 量产项目
 
-**2024 – 2025**
+**2022.02 – 2025.08**
 
-- 负责TSR状态机及显示逻辑开发。
-- 根据系统状态、识别结果及优先级实现交通标志显示策略。
-- 完成CAN信号分析、异常场景验证及版本发布支持。
+- 参与ACC应用层及代码框架开发，覆盖定速巡航、稳态跟车、Cut-in/Cut-out、弯道限速、Stop&Go等功能。
+- 参与PreScan、CarSim、MATLAB仿真分析及实车调试。
+- 完成ACC调试监测变量外发、变量缩放、偏移、编码及DBC维护。
+- 基于CANoe采集车辆状态、ADAS状态和控制相关信号。
+- 使用CANape进行在线标定和MF4数据采集。
+- 结合MATLAB分析控制请求、期望加速度、实际加速度、响应时间和执行结果。
+- 参与量产版本测试、问题定位、参数标定及修改验证。
+
+### 车载前视摄像头 FCW 数据采集上位机
+
+**2021.07 – 2022.01**
+
+- 基于C++、Qt开发前视摄像头网口采数上位机。
+- 完成网口通信、数据接收、数据解析、实时显示、数据存储及回放功能。
+- 对采集链路中的数据异常进行调试和验证。
+
+## 典型技术实践
+
+- ACC控制数据分析：围绕控制状态、期望加速度、实际加速度、扭矩请求、车辆响应等信号开展波形分析。
+- 制动控制分析：分析负扭矩、XBR、MIX、TORQUE等控制模式及其切换过程。
+- 数据闭环：CANoe采集 → MF4保存 → MATLAB分析 → 根因定位 → 标定或代码修改 → 重复测试。
+- 软件工程：具备C/C++、AUTOSAR Classic、SWC/RTE、CAN、DBC、CANoe、CANape、MATLAB、Git等车载软件开发和调试经验。
 
 ## 教育背景
 
-### 计算机科学与技术
+### 四川师范大学
 
-**本科｜2018 – 2022**
-
-- 计算机科学与技术专业
-- 主要学习C/C++、数据结构、操作系统、计算机网络等课程
+**计算机科学与技术｜本科｜2017.09 – 2021.06**
 `;
+
+  /* =======================================================
+     STRING HELPERS
+  ======================================================= */
 
   function clean(text) {
     return String(text || "")
@@ -218,9 +332,11 @@ ADAS软件工程师
   }
 
   function sectionType(title) {
+
     const normalized = normalizeHeading(title);
 
     for (const [type, aliases] of Object.entries(SECTION_ALIASES)) {
+
       if (
         aliases.some(
           alias => normalizeHeading(alias) === normalized
@@ -233,7 +349,12 @@ ADAS软件工程师
     return null;
   }
 
+  /* =======================================================
+     MARKDOWN PARSER
+  ======================================================= */
+
   function parseMarkdown(text) {
+
     const lines = clean(text).split("\n");
 
     const result = {
@@ -246,63 +367,96 @@ ADAS软件工程师
     let current = null;
 
     for (const rawLine of lines) {
+
       const line = rawLine.trim();
 
-      if (!line) continue;
+      if (!line) {
+        continue;
+      }
 
       const heading = line.match(/^(#{1,6})\s+(.+)$/);
 
       if (heading) {
+
         const level = heading[1].length;
         const title = stripMD(heading[2]);
 
+        /* 一级标题 = 姓名 */
+
         if (level === 1 && !result.name) {
+
           result.name = title;
+
           continue;
         }
+
+        /* 二级标题 = 简历大章节 */
 
         const type = sectionType(title);
 
         if (type) {
+
           current = {
-            type,
-            title,
+            type: type,
+            title: title,
             items: []
           };
 
           result.sections.push(current);
+
           continue;
         }
 
+        /* 三级标题及以下 = 公司 / 项目 */
+
         if (current && level >= 3) {
+
           current.items.push({
             type: "subheading",
             text: title
           });
+
           continue;
         }
       }
 
       const plain = stripMD(line);
 
+      /* 姓名后的第一行 = 职位 */
+
       if (!current && result.name && !result.title) {
+
         result.title = plain;
+
         continue;
       }
+
+      /* 职位后的第二行 = 联系方式 */
 
       if (!current && result.title && !result.contact) {
+
         result.contact = plain;
+
         continue;
       }
 
-      if (!current) continue;
+      if (!current) {
+        continue;
+      }
+
+      /* Bullet */
 
       if (/^[-*+]\s+/.test(line)) {
+
         current.items.push({
           type: "bullet",
-          text: stripMD(line.replace(/^[-*+]\s+/, ""))
+          text: stripMD(
+            line.replace(/^[-*+]\s+/, "")
+          )
         });
+
       } else {
+
         current.items.push({
           type: "text",
           text: plain
@@ -313,8 +467,14 @@ ADAS软件工程师
     return result;
   }
 
+  /* =======================================================
+     JSON PARSER
+  ======================================================= */
+
   function parseJSON(text) {
+
     try {
+
       const data = JSON.parse(text);
 
       if (!data || typeof data !== "object") {
@@ -322,18 +482,24 @@ ADAS软件工程师
       }
 
       const result = {
-        name: data.name || data.姓名 || "",
+        name:
+          data.name ||
+          data.姓名 ||
+          "",
+
         title:
           data.title ||
           data.jobTitle ||
           data.position ||
           data.职位 ||
           "",
+
         contact:
           data.contact ||
           data.contacts ||
           data.联系方式 ||
           "",
+
         sections: []
       };
 
@@ -348,7 +514,10 @@ ADAS软件工程师
       ];
 
       keys.forEach(key => {
-        if (!data[key]) return;
+
+        if (!data[key]) {
+          return;
+        }
 
         const section = {
           type: key,
@@ -359,16 +528,24 @@ ADAS软件工程师
         const value = data[key];
 
         if (Array.isArray(value)) {
+
           value.forEach(item => {
+
             if (typeof item === "string") {
+
               section.items.push({
                 type: "text",
                 text: item
               });
+
               return;
             }
 
-            if (item && typeof item === "object") {
+            if (
+              item &&
+              typeof item === "object"
+            ) {
+
               const heading =
                 item.title ||
                 item.name ||
@@ -377,6 +554,7 @@ ADAS软件工程师
                 "";
 
               if (heading) {
+
                 section.items.push({
                   type: "subheading",
                   text: heading
@@ -384,6 +562,7 @@ ADAS软件工程师
               }
 
               if (item.description) {
+
                 section.items.push({
                   type: "text",
                   text: item.description
@@ -391,16 +570,22 @@ ADAS软件工程师
               }
 
               if (Array.isArray(item.bullets)) {
-                item.bullets.forEach(bullet => {
-                  section.items.push({
-                    type: "bullet",
-                    text: bullet
-                  });
-                });
+
+                item.bullets.forEach(
+                  bullet => {
+
+                    section.items.push({
+                      type: "bullet",
+                      text: bullet
+                    });
+                  }
+                );
               }
             }
           });
+
         } else if (typeof value === "string") {
+
           section.items.push({
             type: "text",
             text: value
@@ -411,15 +596,23 @@ ADAS软件工程师
       });
 
       return result;
-    } catch {
+
+    } catch (error) {
+
       return null;
     }
   }
 
+  /* =======================================================
+     RESUME PARSER
+  ======================================================= */
+
   function parseResume(text) {
+
     text = clean(text);
 
     if (!text) {
+
       return {
         name: "姓名",
         title: "求职职位",
@@ -437,41 +630,102 @@ ADAS软件工程师
     return parseMarkdown(text);
   }
 
-  /*
-   * =======================================================
-   * 关键修复
-   *
-   * 以前：
-   *   所有 subheading 先输出
-   *   所有 bullet 再统一输出
-   *
-   * 现在：
-   *   严格按照 Markdown 原始顺序输出
-   *
-   *   ### 公司A
-   *   日期
-   *   - 内容A
-   *   - 内容A
-   *
-   *   ### 公司B
-   *   日期
-   *   - 内容B
-   *   - 内容B
-   *
-   * 每个标题只绑定它后面的内容，不再串组。
-   * =======================================================
-   */
+  /* =======================================================
+     RENDER HEADER
+  ======================================================= */
+
+  function renderHeader(data) {
+
+    const photo =
+      localStorage.getItem(STORAGE.photo);
+
+    let photoHTML = "";
+
+    if (
+      state.showPhoto &&
+      photo
+    ) {
+
+      photoHTML = `
+        <div class="resume-photo">
+          <img
+            src="${photo}"
+            alt="证件照"
+          >
+        </div>
+      `;
+    }
+
+    return `
+      <header class="paper-header">
+
+        <div class="identity">
+
+          <div class="name">
+            ${escapeHTML(
+              data.name || "姓名"
+            )}
+          </div>
+
+          <div class="title">
+            ${escapeHTML(
+              data.title || ""
+            )}
+          </div>
+
+          <div class="contact">
+            ${escapeHTML(
+              data.contact || ""
+            )}
+          </div>
+
+        </div>
+
+        ${photoHTML}
+
+      </header>
+    `;
+  }
+
+  /* =======================================================
+     SECTION RENDER
+     
+     关键修复：
+     
+     ### 公司A
+     日期
+     - A
+     - A
+
+     ### 公司B
+     日期
+     - B
+     - B
+
+     不再把所有标题集中输出，
+     再把所有 bullet 集中输出。
+  ======================================================= */
+
   function renderSection(section) {
-    if (!section.items || !section.items.length) {
+
+    if (
+      !section.items ||
+      !section.items.length
+    ) {
       return "";
     }
 
     let bodyHTML = "";
+
     let bulletHTML = "";
+
     let hasBullet = false;
 
-    const flushBullets = () => {
-      if (!hasBullet) return;
+    function flushBullets() {
+
+      if (!hasBullet) {
+        return;
+      }
 
       bodyHTML += `
         <ul>
@@ -480,15 +734,27 @@ ADAS软件工程师
       `;
 
       bulletHTML = "";
+
       hasBullet = false;
-    };
+    }
 
     section.items.forEach(item => {
-      const text = escapeHTML(item.text || "");
 
-      if (!text) return;
+      const text =
+        escapeHTML(
+          item.text || ""
+        );
 
-      if (item.type === "subheading") {
+      if (!text) {
+        return;
+      }
+
+      /* 公司 / 项目标题 */
+
+      if (
+        item.type === "subheading"
+      ) {
+
         flushBullets();
 
         bodyHTML += `
@@ -500,7 +766,12 @@ ADAS软件工程师
         return;
       }
 
-      if (item.type === "text") {
+      /* 普通文本 */
+
+      if (
+        item.type === "text"
+      ) {
+
         flushBullets();
 
         bodyHTML += `
@@ -512,7 +783,12 @@ ADAS软件工程师
         return;
       }
 
-      if (item.type === "bullet") {
+      /* Bullet */
+
+      if (
+        item.type === "bullet"
+      ) {
+
         hasBullet = true;
 
         bulletHTML += `
@@ -526,82 +802,44 @@ ADAS软件工程师
     flushBullets();
 
     return `
-      <section class="section section-${section.type}">
+      <section
+        class="section section-${escapeHTML(
+          section.type
+        )}"
+      >
+
         <div class="section-title">
-          ${escapeHTML(section.title)}
+          ${escapeHTML(
+            section.title
+          )}
         </div>
 
         <div class="section-body">
           ${bodyHTML}
         </div>
+
       </section>
     `;
   }
 
-  function renderHeader(data) {
-    const photo = localStorage.getItem(STORAGE.photo);
-
-    return `
-      <header class="paper-header">
-
-        <div class="identity">
-
-          <div class="name">
-            ${escapeHTML(data.name || "姓名")}
-          </div>
-
-          ${
-            data.title
-              ? `
-                <div class="title">
-                  ${escapeHTML(data.title)}
-                </div>
-              `
-              : ""
-          }
-
-          ${
-            data.contact
-              ? `
-                <div class="contact">
-                  ${escapeHTML(data.contact)}
-                </div>
-              `
-              : ""
-          }
-
-        </div>
-
-        ${
-          state.showPhoto && photo
-            ? `
-              <div class="resume-photo">
-                <img src="${photo}" alt="证件照">
-              </div>
-            `
-            : ""
-        }
-
-      </header>
-    `;
-  }
+  /* =======================================================
+     RENDER RESUME
+  ======================================================= */
 
   function render() {
-    if (!paper || !source) {
-      console.error("ResumeFlow: 页面关键元素不存在");
+
+    if (!paper) {
       return;
     }
 
-    const data = parseResume(source.value);
+    const data =
+      parseResume(
+        source ? source.value : ""
+      );
 
     const theme =
       THEMES[state.theme] ||
       THEMES.blue;
-
-    const sections =
-      data.sections
-        .map(renderSection)
-        .join("");
 
     paper.className =
       `paper ${state.template} page-${state.pageMode}`;
@@ -621,199 +859,310 @@ ADAS软件工程师
       `${state.fontSize}px`
     );
 
-    paper.innerHTML = `
-      ${renderHeader(data)}
+    paper.style.setProperty(
+      "--resume-zoom",
+      state.zoom
+    );
 
-      <main class="resume-content">
-        ${sections}
-      </main>
-    `;
+    paper.innerHTML =
+      renderHeader(data) +
+      data.sections
+        .map(renderSection)
+        .join("");
 
     applyFont();
-    applyZoom();
-    updatePhotoUI();
-  }
-
-  function applyFont() {
-    if (!paper) return;
-
-    const fonts = {
-      pingfang:
-        '"PingFang SC","Microsoft YaHei",sans-serif',
-
-      yahei:
-        '"Microsoft YaHei","PingFang SC",sans-serif',
-
-      system:
-        '-apple-system,BlinkMacSystemFont,"Segoe UI","Microsoft YaHei",sans-serif'
-    };
-
-    paper.style.fontFamily =
-      fonts[state.font] ||
-      fonts.system;
-  }
-
-  function applyZoom() {
-    if (!paper) return;
 
     paper.style.transform =
       `scale(${state.zoom})`;
 
-    paper.style.transformOrigin =
-      "top center";
-
-    if (zoomVal) {
-      zoomVal.textContent =
-        `${Math.round(state.zoom * 100)}%`;
-    }
+    updateScaleSpace();
   }
 
-  function save() {
-    try {
-      localStorage.setItem(
-        STORAGE.STATE,
-        JSON.stringify(state)
-      );
+  /* =======================================================
+     FONT
+  ======================================================= */
 
-      localStorage.setItem(
-        STORAGE.RESUME,
-        source.value
-      );
-    } catch (error) {
-      console.warn(
-        "ResumeFlow localStorage error",
-        error
-      );
+  function applyFont() {
+
+    if (!paper) {
+      return;
     }
+
+    const fonts = {
+
+      pingfang: `
+        -apple-system,
+        BlinkMacSystemFont,
+        "PingFang SC",
+        "Microsoft YaHei",
+        sans-serif
+      `,
+
+      yahei: `
+        "Microsoft YaHei",
+        "PingFang SC",
+        sans-serif
+      `,
+
+      system: `
+        system-ui,
+        -apple-system,
+        BlinkMacSystemFont,
+        "PingFang SC",
+        sans-serif
+      `
+    };
+
+    paper.style.fontFamily =
+      fonts[state.font] ||
+      fonts.pingfang;
   }
 
-  function load() {
-    const oldStateKeys = [
-      "resumeflow-state-v121",
-      "resumeflow-state-v12"
-    ];
+  /* =======================================================
+     PREVIEW SCALE SPACE
+  ======================================================= */
 
-    for (const key of oldStateKeys) {
-      try {
-        const old = localStorage.getItem(key);
+  function updateScaleSpace() {
 
-        if (!old) continue;
-
-        const parsed = JSON.parse(old);
-
-        if (parsed && typeof parsed === "object") {
-          state = {
-            ...DEFAULT_STATE,
-            ...parsed
-          };
-          break;
-        }
-      } catch {
-        // ignore old broken state
-      }
+    if (!paper) {
+      return;
     }
 
-    try {
-      const current =
-        localStorage.getItem(
-          STORAGE.STATE
-        );
+    const zoomValue =
+      Number(state.zoom) || 0.8;
 
-      if (current) {
-        const parsed =
-          JSON.parse(current);
+    const height =
+      paper.offsetHeight ||
+      1123;
 
-        if (
-          parsed &&
-          typeof parsed === "object"
-        ) {
-          state = {
-            ...state,
-            ...parsed
-          };
-        }
-      }
-    } catch {
-      // use defaults
-    }
-
-    const savedResume =
-      localStorage.getItem(
-        STORAGE.RESUME
-      );
-
-    const oldResume =
-      localStorage.getItem(
-        "resumeflow-resume-v121"
-      ) ||
-      localStorage.getItem(
-        "resumeflow-resume-v12"
-      );
-
-    source.value =
-      savedResume ||
-      oldResume ||
-      DEMO_MD;
-
-    normalizeState();
+    paper.style.marginBottom =
+      `${-(height * (1 - zoomValue))}px`;
   }
+
+  /* =======================================================
+     STATE NORMALIZATION
+  ======================================================= */
 
   function normalizeState() {
-    if (!TEMPLATE_LIST.includes(state.template)) {
-      state.template =
-        DEFAULT_STATE.template;
-    }
 
-    if (!THEMES[state.theme]) {
-      state.theme =
-        DEFAULT_STATE.theme;
+    if (
+      !TEMPLATE_LIST.includes(
+        state.template
+      )
+    ) {
+      state.template = "tech";
     }
 
     if (
-      !["auto", "one", "two"].includes(
-        state.pageMode
-      )
+      !THEMES[state.theme]
     ) {
-      state.pageMode =
-        DEFAULT_STATE.pageMode;
+      state.theme = "blue";
     }
 
     if (
-      !["pingfang", "yahei", "system"].includes(
-        state.font
-      )
+      !["auto", "one", "two"]
+        .includes(state.pageMode)
     ) {
-      state.font =
-        DEFAULT_STATE.font;
+      state.pageMode = "auto";
     }
 
-    state.fontSize = Math.min(
-      15,
+    if (
+      !["pingfang", "yahei", "system"]
+        .includes(state.font)
+    ) {
+      state.font = "pingfang";
+    }
+
+    let fs =
+      Number(state.fontSize);
+
+    if (
+      !Number.isFinite(fs)
+    ) {
+      fs = 13;
+    }
+
+    fs =
       Math.max(
         10,
-        Number(state.fontSize) || 13
-      )
-    );
+        Math.min(
+          18,
+          fs
+        )
+      );
 
-    state.zoom = Math.min(
-      1,
+    state.fontSize = fs;
+
+    let z =
+      Number(state.zoom);
+
+    if (
+      !Number.isFinite(z)
+    ) {
+      z = 0.8;
+    }
+
+    z =
       Math.max(
         0.55,
-        Number(state.zoom) || 0.8
-      )
-    );
+        Math.min(
+          1,
+          z
+        )
+      );
+
+    state.zoom = z;
 
     state.showPhoto =
       state.showPhoto !== false;
   }
 
+  /* =======================================================
+     SAVE
+  ======================================================= */
+
+  function save() {
+
+    try {
+
+      localStorage.setItem(
+        STORAGE.resume,
+        source
+          ? source.value
+          : ""
+      );
+
+      localStorage.setItem(
+        STORAGE.state,
+        JSON.stringify(state)
+      );
+
+      const saveState =
+        $("saveState");
+
+      if (saveState) {
+
+        saveState.textContent =
+          "已自动保存";
+      }
+
+    } catch (error) {
+
+      console.warn(
+        "ResumeFlow save error:",
+        error
+      );
+    }
+  }
+
+  /* =======================================================
+     LOAD
+  ======================================================= */
+
+  function load() {
+
+    try {
+
+      const savedResume =
+        localStorage.getItem(
+          STORAGE.resume
+        );
+
+      if (
+        savedResume &&
+        source
+      ) {
+        source.value =
+          savedResume;
+      }
+
+      const savedState =
+        localStorage.getItem(
+          STORAGE.state
+        );
+
+      if (savedState) {
+
+        const parsed =
+          JSON.parse(
+            savedState
+          );
+
+        if (
+          parsed &&
+          typeof parsed === "object"
+        ) {
+
+          state = {
+            ...DEFAULT_STATE,
+            ...parsed
+          };
+        }
+      }
+
+    } catch (error) {
+
+      console.warn(
+        "ResumeFlow load error:",
+        error
+      );
+
+      state = {
+        ...DEFAULT_STATE
+      };
+    }
+  }
+
+  /* =======================================================
+     CONTROLS
+  ======================================================= */
+
   function syncControls() {
+
+    /* 模板 */
+
+    if (templates) {
+
+      templates
+        .querySelectorAll(
+          "[data-t]"
+        )
+        .forEach(button => {
+
+          button.classList.toggle(
+            "active",
+            button.dataset.t ===
+              state.template
+          );
+        });
+    }
+
+    /* 主题 */
+
+    if (themes) {
+
+      themes
+        .querySelectorAll(
+          "[data-theme]"
+        )
+        .forEach(button => {
+
+          button.classList.toggle(
+            "active",
+            button.dataset.theme ===
+              state.theme
+          );
+        });
+    }
+
     if (pages) {
+
       pages.value =
         state.pageMode;
     }
 
     if (photoMode) {
+
       photoMode.value =
         state.showPhoto
           ? "show"
@@ -821,76 +1170,63 @@ ADAS软件工程师
     }
 
     if (font) {
+
       font.value =
         state.font;
     }
 
     if (size) {
+
+      /*
+       * 关键修改：
+       * 最大字号从 15 改成 18
+       */
+
+      size.min = "10";
+      size.max = "18";
+      size.step = "0.5";
+
       size.value =
         state.fontSize;
     }
 
     if (sizeVal) {
+
       sizeVal.textContent =
         state.fontSize;
     }
 
     if (zoom) {
+
       zoom.value =
         state.zoom;
     }
 
     if (zoomVal) {
+
       zoomVal.textContent =
-        `${Math.round(state.zoom * 100)}%`;
+        `${Math.round(
+          state.zoom * 100
+        )}%`;
     }
-
-    updateTemplateButtons();
-    updateThemeButtons();
   }
 
-  function updateTemplateButtons() {
-    if (!templates) return;
-
-    templates
-      .querySelectorAll("[data-t]")
-      .forEach(button => {
-        button.classList.toggle(
-          "active",
-          button.dataset.t === state.template
-        );
-      });
-  }
-
-  function updateThemeButtons() {
-    if (!themes) return;
-
-    themes
-      .querySelectorAll("[data-theme]")
-      .forEach(button => {
-        const theme =
-          THEMES[button.dataset.theme];
-
-        button.classList.toggle(
-          "active",
-          button.dataset.theme === state.theme
-        );
-
-        if (theme) {
-          button.style.setProperty(
-            "--theme-color",
-            theme.main
-          );
-        }
-      });
-  }
+  /* =======================================================
+     TEMPLATE PREVIEW
+  ======================================================= */
 
   function createTemplatePreview() {
-    if (!templates) return;
+
+    if (!templates) {
+      return;
+    }
 
     templates
-      .querySelectorAll("[data-t]")
+      .querySelectorAll(
+        "[data-t]"
+      )
       .forEach(button => {
+
         if (
           button.querySelector(
             ".template-thumb"
@@ -899,21 +1235,23 @@ ADAS软件工程师
           return;
         }
 
+        const type =
+          button.dataset.t;
+
         const label =
           button.textContent.trim();
 
         button.innerHTML = `
-          <span class="
-            template-thumb
-            template-thumb-${button.dataset.t}
-          ">
+          <span
+            class="template-thumb template-thumb-${type}"
+          >
             <span class="mini-name"></span>
+            <span class="mini-line"></span>
+            <span class="mini-section"></span>
             <span class="mini-line"></span>
             <span class="mini-line short"></span>
             <span class="mini-section"></span>
             <span class="mini-line"></span>
-            <span class="mini-line"></span>
-            <span class="mini-line short"></span>
           </span>
 
           <span class="template-label">
@@ -923,915 +1261,802 @@ ADAS软件工程师
       });
   }
 
+  /* =======================================================
+     PHOTO UI
+  ======================================================= */
+
   function updatePhotoUI() {
+
+    if (!photoPreview) {
+      return;
+    }
+
     const photo =
       localStorage.getItem(
         STORAGE.photo
       );
 
-    if (photoPreview) {
+    if (photo) {
+
+      photoPreview.innerHTML = `
+        <img
+          src="${photo}"
+          alt="证件照"
+        />
+      `;
+
+    } else {
+
       photoPreview.innerHTML =
-        photo
-          ? `
-            <img
-              src="${photo}"
-              alt="证件照"
-            >
-          `
-          : "<span>证件照</span>";
+        "<span>证件照</span>";
     }
 
     if (removePhotoBtn) {
+
       removePhotoBtn.disabled =
         !photo;
     }
   }
 
-  async function importFile(file) {
-    if (!file) return;
+  /* =======================================================
+     PHOTO UPLOAD
+  ======================================================= */
 
-    const name =
-      file.name.toLowerCase();
+  function handlePhoto(file) {
 
-    const supported =
-      name.endsWith(".md") ||
-      name.endsWith(".txt") ||
-      name.endsWith(".json");
-
-    if (!supported) {
-      alert(
-        "请选择 TXT、MD 或 JSON 文件。"
-      );
+    if (!file) {
       return;
     }
 
-    try {
-      const text =
-        await file.text();
-
-      source.value = text;
-
-      save();
-      render();
-    } catch (error) {
-      console.error(error);
+    if (
+      ![
+        "image/jpeg",
+        "image/png",
+        "image/webp"
+      ].includes(file.type)
+    ) {
 
       alert(
-        "文件读取失败，请重新选择文件。"
+        "请选择 JPG、PNG 或 WebP 图片。"
       );
+
+      return;
     }
-  }
 
-  function openFilePicker(input) {
-    if (!input) return;
+    const reader =
+      new FileReader();
 
-    try {
-      if (
-        typeof input.showPicker ===
-        "function"
-      ) {
-        input.showPicker();
-        return;
+    reader.onload = event => {
+
+      const result =
+        event.target.result;
+
+      try {
+
+        localStorage.setItem(
+          STORAGE.photo,
+          result
+        );
+
+        updatePhotoUI();
+
+        render();
+
+      } catch (error) {
+
+        alert(
+          "照片保存失败，可能是图片过大。"
+        );
       }
-    } catch {
-      // fallback
-    }
+    };
 
-    input.click();
+    reader.readAsDataURL(file);
   }
 
-  /* ---------------- 文件 ---------------- */
+  /* =======================================================
+     FILE IMPORT
+  ======================================================= */
 
-  if (fileBtn && fileInput) {
-    fileBtn.addEventListener(
+  function handleResumeFile(file) {
+
+    if (!file) {
+      return;
+    }
+
+    const reader =
+      new FileReader();
+
+    reader.onload = event => {
+
+      source.value =
+        event.target.result || "";
+
+      save();
+
+      render();
+    };
+
+    reader.readAsText(
+      file,
+      "UTF-8"
+    );
+  }
+
+  /* =======================================================
+     EVENT：TEMPLATE
+  ======================================================= */
+
+  if (templates) {
+
+    templates.addEventListener(
       "click",
       event => {
-        event.preventDefault();
-        event.stopPropagation();
-        openFilePicker(fileInput);
+
+        const button =
+          event.target.closest(
+            "[data-t]"
+          );
+
+        if (!button) {
+          return;
+        }
+
+        state.template =
+          button.dataset.t;
+
+        syncControls();
+
+        save();
+
+        render();
+      }
+    );
+  }
+
+  /* =======================================================
+     EVENT：THEME
+  ======================================================= */
+
+  if (themes) {
+
+    themes.addEventListener(
+      "click",
+      event => {
+
+        const button =
+          event.target.closest(
+            "[data-theme]"
+          );
+
+        if (!button) {
+          return;
+        }
+
+        state.theme =
+          button.dataset.theme;
+
+        syncControls();
+
+        save();
+
+        render();
+      }
+    );
+  }
+
+  /* =======================================================
+     EVENT：PAGE MODE
+  ======================================================= */
+
+  if (pages) {
+
+    pages.addEventListener(
+      "change",
+      () => {
+
+        state.pageMode =
+          pages.value;
+
+        save();
+
+        render();
+      }
+    );
+  }
+
+  /* =======================================================
+     EVENT：PHOTO MODE
+  ======================================================= */
+
+  if (photoMode) {
+
+    photoMode.addEventListener(
+      "change",
+      () => {
+
+        state.showPhoto =
+          photoMode.value ===
+          "show";
+
+        save();
+
+        render();
+      }
+    );
+  }
+
+  /* =======================================================
+     EVENT：FONT
+  ======================================================= */
+
+  if (font) {
+
+    font.addEventListener(
+      "change",
+      () => {
+
+        state.font =
+          font.value;
+
+        save();
+
+        render();
+      }
+    );
+  }
+
+  /* =======================================================
+     EVENT：FONT SIZE
+  ======================================================= */
+
+  if (size) {
+
+    /*
+     * 强制确保旧 HTML 中
+     * max="15" 也会升级成 18
+     */
+
+    size.min = "10";
+    size.max = "18";
+    size.step = "0.5";
+
+    size.addEventListener(
+      "input",
+      () => {
+
+        state.fontSize =
+          Number(size.value);
+
+        if (sizeVal) {
+
+          sizeVal.textContent =
+            state.fontSize;
+        }
+
+        save();
+
+        render();
+      }
+    );
+  }
+
+  /* =======================================================
+     EVENT：ZOOM
+  ======================================================= */
+
+  if (zoom) {
+
+    zoom.addEventListener(
+      "input",
+      () => {
+
+        state.zoom =
+          Number(zoom.value);
+
+        if (zoomVal) {
+
+          zoomVal.textContent =
+            `${Math.round(
+              state.zoom * 100
+            )}%`;
+        }
+
+        save();
+
+        render();
+      }
+    );
+  }
+
+  /* =======================================================
+     EVENT：SOURCE INPUT
+  ======================================================= */
+
+  if (source) {
+
+    source.addEventListener(
+      "input",
+      () => {
+
+        save();
+
+        render();
+      }
+    );
+  }
+
+  /* =======================================================
+     EVENT：RENDER
+  ======================================================= */
+
+  if (renderBtn) {
+
+    renderBtn.addEventListener(
+      "click",
+      () => {
+
+        save();
+
+        render();
+      }
+    );
+  }
+
+  /* =======================================================
+     EVENT：CLEAR
+  ======================================================= */
+
+  if (clearBtn) {
+
+    clearBtn.addEventListener(
+      "click",
+      () => {
+
+        if (
+          !confirm(
+            "确定清空当前简历内容吗？"
+          )
+        ) {
+          return;
+        }
+
+        source.value = "";
+
+        save();
+
+        render();
+      }
+    );
+  }
+
+  /* =======================================================
+     EVENT：DEMO
+  ======================================================= */
+
+  if (demoBtn) {
+
+    demoBtn.addEventListener(
+      "click",
+      () => {
+
+        source.value =
+          DEMO_MD;
+
+        save();
+
+        render();
+      }
+    );
+  }
+
+  /* =======================================================
+     EVENT：FILE BUTTON
+  ======================================================= */
+
+  if (fileBtn && fileInput) {
+
+    fileBtn.addEventListener(
+      "click",
+      () => {
+
+        fileInput.click();
       }
     );
 
     fileInput.addEventListener(
       "change",
-      event => {
-        importFile(
-          event.target.files?.[0]
-        );
+      () => {
+
+        const file =
+          fileInput.files &&
+          fileInput.files[0];
+
+        handleResumeFile(file);
+
+        fileInput.value = "";
       }
     );
   }
 
+  /* =======================================================
+     EVENT：DRAG & DROP
+  ======================================================= */
+
   if (dropZone) {
+
     dropZone.addEventListener(
       "dragover",
       event => {
+
         event.preventDefault();
-        dropZone.classList.add("drag");
+
+        dropZone.classList.add(
+          "drag"
+        );
       }
     );
 
     dropZone.addEventListener(
       "dragleave",
       () => {
-        dropZone.classList.remove("drag");
+
+        dropZone.classList.remove(
+          "drag"
+        );
       }
     );
 
     dropZone.addEventListener(
       "drop",
       event => {
+
         event.preventDefault();
 
-        dropZone.classList.remove("drag");
-
-        importFile(
-          event.dataTransfer.files?.[0]
+        dropZone.classList.remove(
+          "drag"
         );
+
+        const file =
+          event.dataTransfer.files &&
+          event.dataTransfer.files[0];
+
+        handleResumeFile(file);
       }
     );
   }
 
-  /* ---------------- 证件照 ---------------- */
+  /* =======================================================
+     EVENT：PHOTO
+  ======================================================= */
 
   if (photoBtn && photoFile) {
+
     photoBtn.addEventListener(
       "click",
-      event => {
-        event.preventDefault();
-        event.stopPropagation();
-        openFilePicker(photoFile);
+      () => {
+
+        photoFile.click();
       }
     );
 
     photoFile.addEventListener(
       "change",
-      event => {
+      () => {
+
         const file =
-          event.target.files?.[0];
+          photoFile.files &&
+          photoFile.files[0];
 
-        if (!file) return;
+        handlePhoto(file);
 
-        const allowed = [
-          "image/jpeg",
-          "image/png",
-          "image/webp"
-        ];
-
-        if (!allowed.includes(file.type)) {
-          alert(
-            "请选择 JPG、PNG 或 WebP 图片。"
-          );
-          return;
-        }
-
-        const reader =
-          new FileReader();
-
-        reader.onload = event => {
-          localStorage.setItem(
-            STORAGE.photo,
-            event.target.result
-          );
-
-          updatePhotoUI();
-          render();
-        };
-
-        reader.onerror = () => {
-          alert("照片读取失败。");
-        };
-
-        reader.readAsDataURL(file);
+        photoFile.value = "";
       }
     );
   }
 
+  /* =======================================================
+     EVENT：REMOVE PHOTO
+  ======================================================= */
+
   if (removePhotoBtn) {
+
     removePhotoBtn.addEventListener(
       "click",
-      event => {
-        event.preventDefault();
+      () => {
 
         localStorage.removeItem(
           STORAGE.photo
         );
 
-        if (photoFile) {
-          photoFile.value = "";
-        }
-
         updatePhotoUI();
-        render();
-      }
-    );
-  }
-
-  /* ---------------- Demo ---------------- */
-
-  if (demoBtn) {
-    demoBtn.addEventListener(
-      "click",
-      event => {
-        event.preventDefault();
-
-        source.value = DEMO_MD;
-
-        save();
-        render();
-      }
-    );
-  }
-
-  /* ---------------- Render ---------------- */
-
-  if (renderBtn) {
-    renderBtn.addEventListener(
-      "click",
-      event => {
-        event.preventDefault();
-
-        save();
-        render();
-      }
-    );
-  }
-
-  /* ---------------- Clear ---------------- */
-
-  if (clearBtn) {
-    clearBtn.addEventListener(
-      "click",
-      event => {
-        event.preventDefault();
-
-        source.value = "";
-
-        localStorage.removeItem(
-          STORAGE.RESUME
-        );
 
         render();
       }
     );
   }
-
-  /* ---------------- PDF ---------------- */
-
-  if (pdfBtn) {
-    pdfBtn.addEventListener(
-      "click",
-      event => {
-        event.preventDefault();
-
-        save();
-
-        requestAnimationFrame(() => {
-          window.print();
-        });
-      }
-    );
-  }
-
-  /* ---------------- 模板 ---------------- */
-
-  if (templates) {
-    templates.addEventListener(
-      "click",
-      event => {
-        const button =
-          event.target.closest(
-            "[data-t]"
-          );
-
-        if (!button) return;
-
-        const template =
-          button.dataset.t;
-
-        if (
-          !TEMPLATE_LIST.includes(
-            template
-          )
-        ) {
-          return;
-        }
-
-        state.template =
-          template;
-
-        updateTemplateButtons();
-
-        save();
-        render();
-      }
-    );
-  }
-
-  /* ---------------- 主题 ---------------- */
-
-  if (themes) {
-    themes.addEventListener(
-      "click",
-      event => {
-        const button =
-          event.target.closest(
-            "[data-theme]"
-          );
-
-        if (!button) return;
-
-        const theme =
-          button.dataset.theme;
-
-        if (!THEMES[theme]) return;
-
-        state.theme =
-          theme;
-
-        updateThemeButtons();
-
-        save();
-        render();
-      }
-    );
-  }
-
-  /* ---------------- 页面模式 ---------------- */
-
-  if (pages) {
-    pages.addEventListener(
-      "change",
-      () => {
-        state.pageMode =
-          pages.value;
-
-        save();
-        render();
-      }
-    );
-  }
-
-  /* ---------------- 照片显示 ---------------- */
-
-  if (photoMode) {
-    photoMode.addEventListener(
-      "change",
-      () => {
-        state.showPhoto =
-          photoMode.value === "show";
-
-        save();
-        render();
-      }
-    );
-  }
-
-  /* ---------------- 字体 ---------------- */
-
-  if (font) {
-    font.addEventListener(
-      "change",
-      () => {
-        state.font =
-          font.value;
-
-        save();
-        render();
-      }
-    );
-  }
-
-  /* ---------------- 字号 ---------------- */
-
-  if (size) {
-    size.addEventListener(
-      "input",
-      () => {
-        state.fontSize =
-          Number(size.value);
-
-        if (sizeVal) {
-          sizeVal.textContent =
-            state.fontSize;
-        }
-
-        save();
-        render();
-      }
-    );
-  }
-
-  /* ---------------- 缩放 ---------------- */
-
-  if (zoom) {
-    zoom.addEventListener(
-      "input",
-      () => {
-        state.zoom =
-          Number(zoom.value);
-
-        applyZoom();
-        save();
-      }
-    );
-  }
-
-  /* ---------------- 输入 ---------------- */
-
-  if (source) {
-    source.addEventListener(
-      "input",
-      () => {
-        save();
-        render();
-      }
-    );
-  }
-
-  /*
-   * =======================================================
-   * 动态 CSS
-   * 保留 V1.2.2 当前视觉效果
-   * =======================================================
-   */
-
-  const style =
-    document.createElement("style");
-
-  style.id =
-    "resumeflow-v123-style";
-
-  style.textContent = `
-
-    #paper{
-      width:794px;
-      min-height:1123px;
-      flex:none;
-      position:relative;
-      box-sizing:border-box;
-      background:#fff;
-      padding:44px 58px;
-      box-shadow:0 10px 35px rgba(0,0,0,.10);
-      transform-origin:top center;
-      color:#171b1f;
-      font-size:var(--resume-font-size,13px);
-      line-height:1.5;
-    }
-
-    #paper .paper-header{
-      width:100%;
-      display:flex;
-      align-items:flex-start;
-      justify-content:space-between;
-      gap:28px;
-      margin-bottom:16px;
-    }
-
-    #paper .identity{
-      flex:1;
-      min-width:0;
-    }
-
-    #paper .name{
-      font-size:30px;
-      font-weight:800;
-      line-height:1.15;
-      margin-bottom:5px;
-    }
-
-    #paper .title{
-      font-size:15px;
-      color:#4d5961;
-      margin-bottom:7px;
-    }
-
-    #paper .contact{
-      font-size:11px;
-      color:#68727b;
-      line-height:1.6;
-    }
-
-    #paper .resume-photo{
-      flex:0 0 auto;
-      width:92px;
-      height:122px;
-      margin-left:auto;
-      border:1px solid #d7dce1;
-      overflow:hidden;
-      background:#f6f7f8;
-    }
-
-    #paper .resume-photo img{
-      display:block;
-      width:100%;
-      height:100%;
-      object-fit:cover;
-    }
-
-    #paper .section{
-      margin-top:14px;
-      break-inside:auto;
-    }
-
-    #paper .section-title{
-      color:var(--resume-accent);
-      font-size:13px;
-      font-weight:800;
-      letter-spacing:.06em;
-      line-height:1.3;
-      border-bottom:1.5px solid var(--resume-accent);
-      padding-bottom:4px;
-      margin-bottom:7px;
-      break-after:avoid;
-    }
-
-    #paper .section-body p{
-      margin:2px 0 4px;
-    }
-
-    #paper .section-body ul{
-      margin:3px 0 6px;
-      padding-left:18px;
-    }
-
-    #paper .section-body li{
-      margin:1px 0 2px;
-      line-height:1.48;
-      break-inside:avoid;
-    }
-
-    #paper .item-head{
-      font-weight:700;
-      margin:4px 0 2px;
-      line-height:1.4;
-      break-after:avoid;
-    }
-
-    #paper.tech{
-      border-top:5px solid var(--resume-accent);
-    }
-
-    #paper.tech .section-title{
-      border-bottom-width:1.5px;
-    }
-
-    #paper.blue{
-      border-top:5px solid var(--resume-accent);
-    }
-
-    #paper.blue .name{
-      color:var(--resume-accent);
-    }
-
-    #paper.blue .section-title{
-      border-bottom-width:2px;
-    }
-
-    #paper.minimal{
-      padding:48px 60px;
-    }
-
-    #paper.minimal .name{
-      font-size:29px;
-      font-weight:700;
-    }
-
-    #paper.minimal .section-title{
-      border-bottom:0;
-      padding-bottom:2px;
-      letter-spacing:.12em;
-    }
-
-    #paper.minimal .contact{
-      padding-bottom:12px;
-      border-bottom:1px solid #ddd;
-    }
-
-    #paper.terminal{
-      font-family:
-        "SFMono-Regular",
-        Consolas,
-        "Liberation Mono",
-        "PingFang SC",
-        monospace;
-    }
-
-    #paper.terminal .name{
-      font-size:27px;
-      color:var(--resume-accent);
-    }
-
-    #paper.terminal .section-title{
-      display:inline-block;
-      background:var(--resume-accent);
-      color:#fff;
-      border:0;
-      padding:4px 8px;
-      letter-spacing:.02em;
-    }
-
-    #paper.grayblue{
-      border-top:4px solid var(--resume-accent);
-    }
-
-    #paper.grayblue .name{
-      color:#253746;
-    }
-
-    #paper.grayblue .section-title{
-      color:var(--resume-accent);
-      border-bottom-color:#9aa9b5;
-    }
-
-    #paper.stripe{
-      border-left:8px solid var(--resume-accent);
-      padding-left:52px;
-    }
-
-    #paper.business .name{
-      font-weight:700;
-    }
-
-    #paper.business .section-title{
-      font-size:12px;
-      letter-spacing:.15em;
-      border-bottom-width:2px;
-    }
-
-    #paper.photo{
-      border-top:5px solid var(--resume-accent);
-    }
-
-    #paper.photo .resume-photo{
-      width:98px;
-      height:130px;
-    }
-
-    #paper.photo .name{
-      color:var(--resume-accent);
-    }
-
-    #paper.page-one{
-      min-height:1123px;
-      padding-top:39px;
-      padding-bottom:32px;
-      font-size:var(--resume-font-size,13px);
-    }
-
-    #paper.page-one .paper-header{
-      margin-bottom:11px;
-    }
-
-    #paper.page-one .name{
-      font-size:28px;
-    }
-
-    #paper.page-one .section{
-      margin-top:10px;
-    }
-
-    #paper.page-one .section-title{
-      margin-bottom:5px;
-    }
-
-    #paper.page-one .section-body p{
-      margin:1px 0 3px;
-    }
-
-    #paper.page-one .section-body ul{
-      margin:2px 0 4px;
-    }
-
-    #paper.page-one .section-body li{
-      line-height:1.39;
-      margin:1px 0 1px;
-    }
-
-    #paper.page-two{
-      min-height:2246px;
-    }
-
-    #paper.page-two .section{
-      margin-top:18px;
-    }
-
-    #templates{
-      grid-template-columns:1fr 1fr;
-    }
-
-    #templates button{
-      min-height:76px;
-      display:flex;
-      flex-direction:column;
-      justify-content:center;
-      align-items:center;
-      gap:4px;
-      padding:5px;
-    }
-
-    .template-thumb{
-      display:block;
-      position:relative;
-      width:54px;
-      height:62px;
-      padding:6px 5px;
-      background:#fff;
-      border:1px solid #d7dce1;
-      box-shadow:0 2px 5px rgba(0,0,0,.08);
-    }
-
-    .template-thumb .mini-name{
-      display:block;
-      width:22px;
-      height:5px;
-      background:#222;
-      margin-bottom:5px;
-    }
-
-    .template-thumb .mini-line{
-      display:block;
-      width:100%;
-      height:2px;
-      background:#d5dade;
-      margin:3px 0;
-    }
-
-    .template-thumb .mini-line.short{
-      width:65%;
-    }
-
-    .template-thumb .mini-section{
-      display:block;
-      width:100%;
-      height:3px;
-      background:#2672a9;
-      margin:5px 0 3px;
-    }
-
-    .template-thumb-tech{
-      border-top:4px solid #222;
-    }
-
-    .template-thumb-blue{
-      border-top:4px solid #2672a9;
-    }
-
-    .template-thumb-minimal{
-      border:0;
-    }
-
-    .template-thumb-terminal{
-      background:#20262c;
-      border-color:#20262c;
-    }
-
-    .template-thumb-terminal .mini-name,
-    .template-thumb-terminal .mini-section{
-      background:#75c7ff;
-    }
-
-    .template-thumb-terminal .mini-line{
-      background:#65717b;
-    }
-
-    .template-thumb-grayblue{
-      border-top:4px solid #687b8c;
-    }
-
-    .template-thumb-stripe{
-      border-left:5px solid #2672a9;
-    }
-
-    .template-thumb-business{
-      border-top:3px solid #333;
-    }
-
-    .template-thumb-photo{
-      border-top:4px solid #2672a9;
-    }
-
-    .template-thumb-photo:after{
-      content:"";
-      position:absolute;
-      top:6px;
-      right:4px;
-      width:12px;
-      height:17px;
-      background:#eee;
-      border:1px solid #aaa;
-    }
-
-    .template-label{
-      font-size:11px;
-      line-height:1.1;
-    }
-
-    #templates button.active{
-      background:#f5f9fd;
-      border-color:var(--resume-accent);
-      color:var(--resume-accent);
-    }
-
-    #themes{
-      grid-template-columns:1fr 1fr;
-    }
-
-    #themes button{
-      position:relative;
-    }
-
-    #themes button:before{
-      content:"";
-      display:inline-block;
-      width:7px;
-      height:7px;
-      border-radius:50%;
-      background:var(--theme-color,#222);
-      margin-right:5px;
-    }
-
-    #themes button.active{
-      outline:2px solid var(--theme-color,#1677ff);
-      outline-offset:1px;
-    }
-
-    @media print{
-      @page{
-        size:A4;
-        margin:0;
-      }
-
-      html,
-      body{
-        background:#fff !important;
-      }
-
-      .top,
-      .left,
-      .right{
-        display:none !important;
-      }
-
-      .main{
-        display:block !important;
-        min-height:0 !important;
-      }
-
-      .center{
-        display:block !important;
-        padding:0 !important;
-        overflow:visible !important;
-      }
-
-      #paper{
-        width:210mm !important;
-        min-height:297mm !important;
-        padding:13mm 15mm !important;
-        margin:0 !important;
-        box-shadow:none !important;
-        transform:none !important;
-        font-size:10.5pt !important;
-      }
-
-      #paper.page-two{
-        min-height:594mm !important;
-      }
-    }
-  `;
-
-  document.head.appendChild(style);
 
   /* =======================================================
-     初始化
+     PDF PRINT STYLE
+     
+     注意：
+     Safari 的网址 / 日期 / 页码属于浏览器打印系统
+     的 Headers & Footers。
+
+     CSS 无法强制关闭 Safari 的这个选项。
+     
+     这里负责的是：
+     - A4
+     - 0 页边距
+     - 隐藏网页 UI
+     - 保留当前字号
+     - 不强制 10.5pt
+  ======================================================= */
+
+  function installPrintStyle() {
+
+    const old =
+      document.getElementById(
+        "resumeflow-print-v124"
+      );
+
+    if (old) {
+      old.remove();
+    }
+
+    const style =
+      document.createElement(
+        "style"
+      );
+
+    style.id =
+      "resumeflow-print-v124";
+
+    style.textContent = `
+
+      @media print {
+
+        @page {
+          size: A4;
+          margin: 0;
+        }
+
+        html,
+        body {
+          width: 210mm;
+          margin: 0 !important;
+          padding: 0 !important;
+          background: #fff !important;
+        }
+
+        .top,
+        .left,
+        .right {
+          display: none !important;
+        }
+
+        .main {
+          display: block !important;
+          width: 210mm !important;
+          min-height: 0 !important;
+          margin: 0 !important;
+          padding: 0 !important;
+        }
+
+        .center {
+          display: block !important;
+          width: 210mm !important;
+          padding: 0 !important;
+          margin: 0 !important;
+          overflow: visible !important;
+        }
+
+        #paper {
+
+          width: 210mm !important;
+
+          min-height: 297mm !important;
+
+          margin: 0 !important;
+
+          padding:
+            13mm 15mm !important;
+
+          box-shadow: none !important;
+
+          transform: none !important;
+
+          font-size:
+            var(--resume-font-size, 13px) !important;
+
+          line-height: 1.55 !important;
+
+          box-sizing: border-box !important;
+        }
+
+        #paper.page-one {
+
+          min-height: 297mm !important;
+
+          font-size:
+            var(--resume-font-size, 13px) !important;
+
+          padding:
+            11mm 15mm !important;
+        }
+
+        #paper.page-two {
+
+          min-height: 594mm !important;
+
+          font-size:
+            var(--resume-font-size, 13px) !important;
+        }
+
+        #paper .section {
+
+          break-inside: auto;
+
+        }
+
+        #paper .item-head {
+
+          break-after: avoid;
+
+          break-inside: avoid;
+
+        }
+
+        #paper li {
+
+          break-inside: avoid;
+
+        }
+
+        #paper .section-title {
+
+          break-after: avoid;
+
+        }
+
+        #paper .resume-photo {
+
+          print-color-adjust: exact;
+
+          -webkit-print-color-adjust:
+            exact;
+        }
+      }
+
+    `;
+
+    document.head.appendChild(
+      style
+    );
+  }
+
+  /* =======================================================
+     PDF BUTTON
+  ======================================================= */
+
+  if (pdfBtn) {
+
+    pdfBtn.addEventListener(
+      "click",
+      () => {
+
+        /*
+         * 每次打印前重新安装，
+         * 确保当前字号生效。
+         */
+
+        installPrintStyle();
+
+        /*
+         * 给浏览器一点时间应用 CSS
+         */
+
+        setTimeout(
+          () => {
+
+            window.print();
+
+          },
+          80
+        );
+      }
+    );
+  }
+
+  /* =======================================================
+     RESPONSIVE UPDATE
+  ======================================================= */
+
+  window.addEventListener(
+    "resize",
+    () => {
+
+      updateScaleSpace();
+    }
+  );
+
+  /* =======================================================
+     INITIALIZE
   ======================================================= */
 
   load();
+
   normalizeState();
+
+  /*
+   * 关键：
+   * 无论旧 index.html 中 max 是多少，
+   * 页面启动时都强制改成 18。
+   */
+
+  if (size) {
+
+    size.min = "10";
+    size.max = "18";
+    size.step = "0.5";
+  }
+
   syncControls();
+
   createTemplatePreview();
+
   updatePhotoUI();
+
   save();
+
+  /*
+   * 如果当前没有简历内容，
+   * 加载示例，方便首次打开。
+   *
+   * 如果已有 localStorage 内容，
+   * 则绝不覆盖。
+   */
+
+  if (
+    source &&
+    !clean(source.value)
+  ) {
+
+    /*
+     * 不自动加载示例。
+     * 保持空白状态。
+     */
+  }
+
+  installPrintStyle();
+
   render();
 
   /* =======================================================
-     Service Worker
+     SERVICE WORKER
   ======================================================= */
 
-  if ("serviceWorker" in navigator) {
+  if (
+    "serviceWorker" in navigator
+  ) {
+
     window.addEventListener(
       "load",
       () => {
+
         navigator.serviceWorker
-          .register("./sw.js?v=1.2.3")
+          .register(
+            "./sw.js?v=1.2.4"
+          )
           .then(reg => {
+
             reg.update();
 
             console.log(
-              "ResumeFlow V1.2.3 Service Worker ready"
+              "ResumeFlow V1.2.4 Service Worker ready"
             );
           })
           .catch(error => {
+
             console.warn(
               "ResumeFlow Service Worker:",
               error
@@ -1844,4 +2069,5 @@ ADAS软件工程师
   console.log(
     `ResumeFlow V${VERSION} ready`
   );
+
 })();
