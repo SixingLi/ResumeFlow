@@ -1,23 +1,20 @@
 /* =========================================================
-   ResumeFlow V1.2.4
-   ---------------------------------------------------------
-   完整版 app.js
+   ResumeFlow V1.2.5
+   Full Replacement Edition
 
-   本版本：
-   1. 修复公司 / 项目标题与对应内容错位
-   2. 正文字号支持 10 ~ 18px
-   3. PDF 使用当前选择字号，不再强制 10.5pt
-   4. 保留 MD / TXT / JSON
-   5. 保留证件照
-   6. 保留模板 / 主题 / 分页 / 字体 / 缩放
-   7. 保留 localStorage
-   8. 保留 Safari / iOS / PWA
+   修复：
+   1. 公司 / 项目标题与对应内容错位
+   2. 主题色失效
+   3. 正文字号最大值 15 -> 18
+   4. PDF 强制 10.5pt -> 使用当前字号
+   5. 兼容旧版 style.css 的 --accent / --accent-soft
+   6. 保留照片、模板、分页、字体、缩放、localStorage
 ========================================================= */
 
 (() => {
   "use strict";
 
-  const VERSION = "1.2.4";
+  const VERSION = "1.2.5";
 
   /* =======================================================
      DOM
@@ -58,9 +55,9 @@
   ======================================================= */
 
   const STORAGE = {
-    resume: "resumeflow-resume-v124",
-    state: "resumeflow-state-v124",
-    photo: "resumeflow-photo-v124"
+    resume: "resumeflow-resume-v122",
+    state: "resumeflow-state-v122",
+    photo: "resumeflow-photo-v122"
   };
 
   /* =======================================================
@@ -137,7 +134,6 @@
   ======================================================= */
 
   const SECTION_ALIASES = {
-
     summary: [
       "个人优势",
       "个人简介",
@@ -295,7 +291,7 @@ ADAS软件工程师
 `;
 
   /* =======================================================
-     STRING HELPERS
+     TEXT HELPERS
   ======================================================= */
 
   function clean(text) {
@@ -332,14 +328,13 @@ ADAS软件工程师
   }
 
   function sectionType(title) {
-
     const normalized = normalizeHeading(title);
 
     for (const [type, aliases] of Object.entries(SECTION_ALIASES)) {
-
       if (
         aliases.some(
-          alias => normalizeHeading(alias) === normalized
+          alias =>
+            normalizeHeading(alias) === normalized
         )
       ) {
         return type;
@@ -374,25 +369,33 @@ ADAS软件工程师
         continue;
       }
 
-      const heading = line.match(/^(#{1,6})\s+(.+)$/);
+      const heading =
+        line.match(/^(#{1,6})\s+(.+)$/);
 
       if (heading) {
 
-        const level = heading[1].length;
-        const title = stripMD(heading[2]);
+        const level =
+          heading[1].length;
 
-        /* 一级标题 = 姓名 */
+        const title =
+          stripMD(heading[2]);
 
-        if (level === 1 && !result.name) {
+        /* # 姓名 */
+
+        if (
+          level === 1 &&
+          !result.name
+        ) {
 
           result.name = title;
 
           continue;
         }
 
-        /* 二级标题 = 简历大章节 */
+        /* ## 工作经历 */
 
-        const type = sectionType(title);
+        const type =
+          sectionType(title);
 
         if (type) {
 
@@ -407,9 +410,12 @@ ADAS软件工程师
           continue;
         }
 
-        /* 三级标题及以下 = 公司 / 项目 */
+        /* ### 公司 / 项目 */
 
-        if (current && level >= 3) {
+        if (
+          current &&
+          level >= 3
+        ) {
 
           current.items.push({
             type: "subheading",
@@ -420,20 +426,29 @@ ADAS软件工程师
         }
       }
 
-      const plain = stripMD(line);
+      const plain =
+        stripMD(line);
 
-      /* 姓名后的第一行 = 职位 */
+      /* 姓名下面第一行 */
 
-      if (!current && result.name && !result.title) {
+      if (
+        !current &&
+        result.name &&
+        !result.title
+      ) {
 
         result.title = plain;
 
         continue;
       }
 
-      /* 职位后的第二行 = 联系方式 */
+      /* 第二行联系方式 */
 
-      if (!current && result.title && !result.contact) {
+      if (
+        !current &&
+        result.title &&
+        !result.contact
+      ) {
 
         result.contact = plain;
 
@@ -444,14 +459,19 @@ ADAS软件工程师
         continue;
       }
 
-      /* Bullet */
+      /* bullet */
 
-      if (/^[-*+]\s+/.test(line)) {
+      if (
+        /^[-*+]\s+/.test(line)
+      ) {
 
         current.items.push({
           type: "bullet",
           text: stripMD(
-            line.replace(/^[-*+]\s+/, "")
+            line.replace(
+              /^[-*+]\s+/,
+              ""
+            )
           )
         });
 
@@ -475,9 +495,13 @@ ADAS软件工程师
 
     try {
 
-      const data = JSON.parse(text);
+      const data =
+        JSON.parse(text);
 
-      if (!data || typeof data !== "object") {
+      if (
+        !data ||
+        typeof data !== "object"
+      ) {
         return null;
       }
 
@@ -521,17 +545,24 @@ ADAS软件工程师
 
         const section = {
           type: key,
-          title: SECTION_ALIASES[key][0],
+          title:
+            SECTION_ALIASES[key][0],
           items: []
         };
 
-        const value = data[key];
+        const value =
+          data[key];
 
-        if (Array.isArray(value)) {
+        if (
+          Array.isArray(value)
+        ) {
 
           value.forEach(item => {
 
-            if (typeof item === "string") {
+            if (
+              typeof item ===
+              "string"
+            ) {
 
               section.items.push({
                 type: "text",
@@ -543,7 +574,8 @@ ADAS软件工程师
 
             if (
               item &&
-              typeof item === "object"
+              typeof item ===
+                "object"
             ) {
 
               const heading =
@@ -561,15 +593,22 @@ ADAS软件工程师
                 });
               }
 
-              if (item.description) {
+              if (
+                item.description
+              ) {
 
                 section.items.push({
                   type: "text",
-                  text: item.description
+                  text:
+                    item.description
                 });
               }
 
-              if (Array.isArray(item.bullets)) {
+              if (
+                Array.isArray(
+                  item.bullets
+                )
+              ) {
 
                 item.bullets.forEach(
                   bullet => {
@@ -584,7 +623,10 @@ ADAS软件工程师
             }
           });
 
-        } else if (typeof value === "string") {
+        } else if (
+          typeof value ===
+          "string"
+        ) {
 
           section.items.push({
             type: "text",
@@ -592,12 +634,14 @@ ADAS软件工程师
           });
         }
 
-        result.sections.push(section);
+        result.sections.push(
+          section
+        );
       });
 
       return result;
 
-    } catch (error) {
+    } catch {
 
       return null;
     }
@@ -621,7 +665,8 @@ ADAS软件工程师
       };
     }
 
-    const json = parseJSON(text);
+    const json =
+      parseJSON(text);
 
     if (json) {
       return json;
@@ -631,13 +676,15 @@ ADAS软件工程师
   }
 
   /* =======================================================
-     RENDER HEADER
+     HEADER
   ======================================================= */
 
   function renderHeader(data) {
 
     const photo =
-      localStorage.getItem(STORAGE.photo);
+      localStorage.getItem(
+        STORAGE.photo
+      );
 
     let photoHTML = "";
 
@@ -663,19 +710,22 @@ ADAS软件工程师
 
           <div class="name">
             ${escapeHTML(
-              data.name || "姓名"
+              data.name ||
+              "姓名"
             )}
           </div>
 
           <div class="title">
             ${escapeHTML(
-              data.title || ""
+              data.title ||
+              ""
             )}
           </div>
 
           <div class="contact">
             ${escapeHTML(
-              data.contact || ""
+              data.contact ||
+              ""
             )}
           </div>
 
@@ -690,8 +740,9 @@ ADAS软件工程师
   /* =======================================================
      SECTION RENDER
      
-     关键修复：
-     
+     重点：
+     所有元素按照原 Markdown 顺序输出。
+
      ### 公司A
      日期
      - A
@@ -701,9 +752,6 @@ ADAS软件工程师
      日期
      - B
      - B
-
-     不再把所有标题集中输出，
-     再把所有 bullet 集中输出。
   ======================================================= */
 
   function renderSection(section) {
@@ -752,7 +800,8 @@ ADAS软件工程师
       /* 公司 / 项目标题 */
 
       if (
-        item.type === "subheading"
+        item.type ===
+        "subheading"
       ) {
 
         flushBullets();
@@ -766,10 +815,11 @@ ADAS软件工程师
         return;
       }
 
-      /* 普通文本 */
+      /* 日期 / 普通文本 */
 
       if (
-        item.type === "text"
+        item.type ===
+        "text"
       ) {
 
         flushBullets();
@@ -783,10 +833,11 @@ ADAS软件工程师
         return;
       }
 
-      /* Bullet */
+      /* bullet */
 
       if (
-        item.type === "bullet"
+        item.type ===
+        "bullet"
       ) {
 
         hasBullet = true;
@@ -823,7 +874,7 @@ ADAS软件工程师
   }
 
   /* =======================================================
-     RENDER RESUME
+     RENDER
   ======================================================= */
 
   function render() {
@@ -834,7 +885,9 @@ ADAS软件工程师
 
     const data =
       parseResume(
-        source ? source.value : ""
+        source
+          ? source.value
+          : ""
       );
 
     const theme =
@@ -843,6 +896,32 @@ ADAS软件工程师
 
     paper.className =
       `paper ${state.template} page-${state.pageMode}`;
+
+    /* =====================================================
+       主题色
+
+       同时设置：
+       --accent
+       --accent-soft
+
+       兼容旧 style.css
+
+       以及：
+       --resume-accent
+       --resume-accent-light
+
+       兼容新版 CSS
+    ===================================================== */
+
+    paper.style.setProperty(
+      "--accent",
+      theme.main
+    );
+
+    paper.style.setProperty(
+      "--accent-soft",
+      theme.light
+    );
 
     paper.style.setProperty(
       "--resume-accent",
@@ -863,6 +942,35 @@ ADAS软件工程师
       "--resume-zoom",
       state.zoom
     );
+
+    /* =====================================================
+       主题按钮颜色
+    ===================================================== */
+
+    if (themes) {
+
+      themes
+        .querySelectorAll(
+          "[data-theme]"
+        )
+        .forEach(button => {
+
+          const name =
+            button.dataset.theme;
+
+          const item =
+            THEMES[name];
+
+          if (!item) {
+            return;
+          }
+
+          button.style.setProperty(
+            "--theme-color",
+            item.main
+          );
+        });
+    }
 
     paper.innerHTML =
       renderHeader(data) +
@@ -919,7 +1027,7 @@ ADAS软件工程师
   }
 
   /* =======================================================
-     PREVIEW SCALE SPACE
+     SCALE
   ======================================================= */
 
   function updateScaleSpace() {
@@ -928,19 +1036,20 @@ ADAS软件工程师
       return;
     }
 
-    const zoomValue =
-      Number(state.zoom) || 0.8;
+    const z =
+      Number(state.zoom) ||
+      0.8;
 
-    const height =
+    const h =
       paper.offsetHeight ||
       1123;
 
     paper.style.marginBottom =
-      `${-(height * (1 - zoomValue))}px`;
+      `${-(h * (1 - z))}px`;
   }
 
   /* =======================================================
-     STATE NORMALIZATION
+     NORMALIZE STATE
   ======================================================= */
 
   function normalizeState() {
@@ -950,35 +1059,56 @@ ADAS软件工程师
         state.template
       )
     ) {
-      state.template = "tech";
+
+      state.template =
+        "tech";
     }
 
     if (
       !THEMES[state.theme]
     ) {
-      state.theme = "blue";
+
+      state.theme =
+        "blue";
     }
 
     if (
-      !["auto", "one", "two"]
-        .includes(state.pageMode)
+      ![
+        "auto",
+        "one",
+        "two"
+      ].includes(
+        state.pageMode
+      )
     ) {
-      state.pageMode = "auto";
+
+      state.pageMode =
+        "auto";
     }
 
     if (
-      !["pingfang", "yahei", "system"]
-        .includes(state.font)
+      ![
+        "pingfang",
+        "yahei",
+        "system"
+      ].includes(
+        state.font
+      )
     ) {
-      state.font = "pingfang";
+
+      state.font =
+        "pingfang";
     }
 
     let fs =
-      Number(state.fontSize);
+      Number(
+        state.fontSize
+      );
 
     if (
       !Number.isFinite(fs)
     ) {
+
       fs = 13;
     }
 
@@ -991,14 +1121,18 @@ ADAS软件工程师
         )
       );
 
-    state.fontSize = fs;
+    state.fontSize =
+      fs;
 
     let z =
-      Number(state.zoom);
+      Number(
+        state.zoom
+      );
 
     if (
       !Number.isFinite(z)
     ) {
+
       z = 0.8;
     }
 
@@ -1011,7 +1145,8 @@ ADAS软件工程师
         )
       );
 
-    state.zoom = z;
+    state.zoom =
+      z;
 
     state.showPhoto =
       state.showPhoto !== false;
@@ -1034,7 +1169,9 @@ ADAS软件工程师
 
       localStorage.setItem(
         STORAGE.state,
-        JSON.stringify(state)
+        JSON.stringify(
+          state
+        )
       );
 
       const saveState =
@@ -1072,6 +1209,7 @@ ADAS软件工程师
         savedResume &&
         source
       ) {
+
         source.value =
           savedResume;
       }
@@ -1090,7 +1228,8 @@ ADAS软件工程师
 
         if (
           parsed &&
-          typeof parsed === "object"
+          typeof parsed ===
+            "object"
         ) {
 
           state = {
@@ -1114,12 +1253,10 @@ ADAS软件工程师
   }
 
   /* =======================================================
-     CONTROLS
+     SYNC CONTROLS
   ======================================================= */
 
   function syncControls() {
-
-    /* 模板 */
 
     if (templates) {
 
@@ -1137,8 +1274,6 @@ ADAS软件工程师
         });
     }
 
-    /* 主题 */
-
     if (themes) {
 
       themes
@@ -1152,6 +1287,19 @@ ADAS软件工程师
             button.dataset.theme ===
               state.theme
           );
+
+          const t =
+            THEMES[
+              button.dataset.theme
+            ];
+
+          if (t) {
+
+            button.style.setProperty(
+              "--theme-color",
+              t.main
+            );
+          }
         });
     }
 
@@ -1178,13 +1326,18 @@ ADAS软件工程师
     if (size) {
 
       /*
-       * 关键修改：
-       * 最大字号从 15 改成 18
+       * 强制把旧版 max=15
+       * 升级到 max=18
        */
 
-      size.min = "10";
-      size.max = "18";
-      size.step = "0.5";
+      size.min =
+        "10";
+
+      size.max =
+        "18";
+
+      size.step =
+        "0.5";
 
       size.value =
         state.fontSize;
@@ -1299,7 +1452,7 @@ ADAS软件工程师
   }
 
   /* =======================================================
-     PHOTO UPLOAD
+     PHOTO
   ======================================================= */
 
   function handlePhoto(file) {
@@ -1308,12 +1461,16 @@ ADAS软件工程师
       return;
     }
 
+    const allowed = [
+      "image/jpeg",
+      "image/png",
+      "image/webp"
+    ];
+
     if (
-      ![
-        "image/jpeg",
-        "image/png",
-        "image/webp"
-      ].includes(file.type)
+      !allowed.includes(
+        file.type
+      )
     ) {
 
       alert(
@@ -1326,35 +1483,35 @@ ADAS软件工程师
     const reader =
       new FileReader();
 
-    reader.onload = event => {
+    reader.onload =
+      event => {
 
-      const result =
-        event.target.result;
+        try {
 
-      try {
+          localStorage.setItem(
+            STORAGE.photo,
+            event.target.result
+          );
 
-        localStorage.setItem(
-          STORAGE.photo,
-          result
-        );
+          updatePhotoUI();
 
-        updatePhotoUI();
+          render();
 
-        render();
+        } catch {
 
-      } catch (error) {
+          alert(
+            "照片保存失败，可能是图片过大。"
+          );
+        }
+      };
 
-        alert(
-          "照片保存失败，可能是图片过大。"
-        );
-      }
-    };
-
-    reader.readAsDataURL(file);
+    reader.readAsDataURL(
+      file
+    );
   }
 
   /* =======================================================
-     FILE IMPORT
+     FILE
   ======================================================= */
 
   function handleResumeFile(file) {
@@ -1366,15 +1523,20 @@ ADAS软件工程师
     const reader =
       new FileReader();
 
-    reader.onload = event => {
+    reader.onload =
+      event => {
 
-      source.value =
-        event.target.result || "";
+        if (source) {
 
-      save();
+          source.value =
+            event.target.result ||
+            "";
+        }
 
-      render();
-    };
+        save();
+
+        render();
+      };
 
     reader.readAsText(
       file,
@@ -1383,7 +1545,7 @@ ADAS软件工程师
   }
 
   /* =======================================================
-     EVENT：TEMPLATE
+     TEMPLATE EVENT
   ======================================================= */
 
   if (templates) {
@@ -1414,7 +1576,7 @@ ADAS软件工程师
   }
 
   /* =======================================================
-     EVENT：THEME
+     THEME EVENT
   ======================================================= */
 
   if (themes) {
@@ -1445,7 +1607,7 @@ ADAS软件工程师
   }
 
   /* =======================================================
-     EVENT：PAGE MODE
+     PAGE EVENT
   ======================================================= */
 
   if (pages) {
@@ -1465,7 +1627,7 @@ ADAS软件工程师
   }
 
   /* =======================================================
-     EVENT：PHOTO MODE
+     PHOTO MODE
   ======================================================= */
 
   if (photoMode) {
@@ -1486,7 +1648,7 @@ ADAS软件工程师
   }
 
   /* =======================================================
-     EVENT：FONT
+     FONT
   ======================================================= */
 
   if (font) {
@@ -1506,26 +1668,37 @@ ADAS软件工程师
   }
 
   /* =======================================================
-     EVENT：FONT SIZE
+     FONT SIZE
   ======================================================= */
 
   if (size) {
 
-    /*
-     * 强制确保旧 HTML 中
-     * max="15" 也会升级成 18
-     */
+    size.min =
+      "10";
 
-    size.min = "10";
-    size.max = "18";
-    size.step = "0.5";
+    size.max =
+      "18";
+
+    size.step =
+      "0.5";
 
     size.addEventListener(
       "input",
       () => {
 
         state.fontSize =
-          Number(size.value);
+          Number(
+            size.value
+          );
+
+        state.fontSize =
+          Math.max(
+            10,
+            Math.min(
+              18,
+              state.fontSize
+            )
+          );
 
         if (sizeVal) {
 
@@ -1541,7 +1714,7 @@ ADAS软件工程师
   }
 
   /* =======================================================
-     EVENT：ZOOM
+     ZOOM
   ======================================================= */
 
   if (zoom) {
@@ -1551,7 +1724,9 @@ ADAS软件工程师
       () => {
 
         state.zoom =
-          Number(zoom.value);
+          Number(
+            zoom.value
+          );
 
         if (zoomVal) {
 
@@ -1569,7 +1744,7 @@ ADAS软件工程师
   }
 
   /* =======================================================
-     EVENT：SOURCE INPUT
+     SOURCE
   ======================================================= */
 
   if (source) {
@@ -1586,7 +1761,7 @@ ADAS软件工程师
   }
 
   /* =======================================================
-     EVENT：RENDER
+     RENDER BUTTON
   ======================================================= */
 
   if (renderBtn) {
@@ -1603,7 +1778,7 @@ ADAS软件工程师
   }
 
   /* =======================================================
-     EVENT：CLEAR
+     CLEAR
   ======================================================= */
 
   if (clearBtn) {
@@ -1620,7 +1795,9 @@ ADAS软件工程师
           return;
         }
 
-        source.value = "";
+        if (source) {
+          source.value = "";
+        }
 
         save();
 
@@ -1630,7 +1807,7 @@ ADAS软件工程师
   }
 
   /* =======================================================
-     EVENT：DEMO
+     DEMO
   ======================================================= */
 
   if (demoBtn) {
@@ -1639,8 +1816,11 @@ ADAS软件工程师
       "click",
       () => {
 
-        source.value =
-          DEMO_MD;
+        if (source) {
+
+          source.value =
+            DEMO_MD;
+        }
 
         save();
 
@@ -1650,10 +1830,13 @@ ADAS软件工程师
   }
 
   /* =======================================================
-     EVENT：FILE BUTTON
+     FILE BUTTON
   ======================================================= */
 
-  if (fileBtn && fileInput) {
+  if (
+    fileBtn &&
+    fileInput
+  ) {
 
     fileBtn.addEventListener(
       "click",
@@ -1671,15 +1854,18 @@ ADAS软件工程师
           fileInput.files &&
           fileInput.files[0];
 
-        handleResumeFile(file);
+        handleResumeFile(
+          file
+        );
 
-        fileInput.value = "";
+        fileInput.value =
+          "";
       }
     );
   }
 
   /* =======================================================
-     EVENT：DRAG & DROP
+     DRAG DROP
   ======================================================= */
 
   if (dropZone) {
@@ -1720,16 +1906,21 @@ ADAS软件工程师
           event.dataTransfer.files &&
           event.dataTransfer.files[0];
 
-        handleResumeFile(file);
+        handleResumeFile(
+          file
+        );
       }
     );
   }
 
   /* =======================================================
-     EVENT：PHOTO
+     PHOTO BUTTON
   ======================================================= */
 
-  if (photoBtn && photoFile) {
+  if (
+    photoBtn &&
+    photoFile
+  ) {
 
     photoBtn.addEventListener(
       "click",
@@ -1749,13 +1940,14 @@ ADAS软件工程师
 
         handlePhoto(file);
 
-        photoFile.value = "";
+        photoFile.value =
+          "";
       }
     );
   }
 
   /* =======================================================
-     EVENT：REMOVE PHOTO
+     REMOVE PHOTO
   ======================================================= */
 
   if (removePhotoBtn) {
@@ -1776,27 +1968,21 @@ ADAS软件工程师
   }
 
   /* =======================================================
-     PDF PRINT STYLE
+     PRINT CSS
      
      注意：
-     Safari 的网址 / 日期 / 页码属于浏览器打印系统
-     的 Headers & Footers。
-
-     CSS 无法强制关闭 Safari 的这个选项。
+     Safari 的网址、日期、页码属于浏览器自身
+     的 Headers & Footers，不属于网页内容。
      
-     这里负责的是：
-     - A4
-     - 0 页边距
-     - 隐藏网页 UI
-     - 保留当前字号
-     - 不强制 10.5pt
+     这里不再强制 10.5pt。
+     PDF 会使用当前选择的字号。
   ======================================================= */
 
   function installPrintStyle() {
 
     const old =
       document.getElementById(
-        "resumeflow-print-v124"
+        "resumeflow-print-v125"
       );
 
     if (old) {
@@ -1809,7 +1995,7 @@ ADAS软件工程师
       );
 
     style.id =
-      "resumeflow-print-v124";
+      "resumeflow-print-v125";
 
     style.textContent = `
 
@@ -1822,7 +2008,7 @@ ADAS软件工程师
 
         html,
         body {
-          width: 210mm;
+          width: 210mm !important;
           margin: 0 !important;
           padding: 0 !important;
           background: #fff !important;
@@ -1861,24 +2047,31 @@ ADAS软件工程师
           padding:
             13mm 15mm !important;
 
-          box-shadow: none !important;
+          box-sizing:
+            border-box !important;
 
-          transform: none !important;
+          box-shadow:
+            none !important;
+
+          transform:
+            none !important;
 
           font-size:
-            var(--resume-font-size, 13px) !important;
+            var(--resume-font-size, 13px)
+            !important;
 
-          line-height: 1.55 !important;
-
-          box-sizing: border-box !important;
+          line-height:
+            1.55 !important;
         }
 
         #paper.page-one {
 
-          min-height: 297mm !important;
+          min-height:
+            297mm !important;
 
           font-size:
-            var(--resume-font-size, 13px) !important;
+            var(--resume-font-size, 13px)
+            !important;
 
           padding:
             11mm 15mm !important;
@@ -1886,44 +2079,42 @@ ADAS软件工程师
 
         #paper.page-two {
 
-          min-height: 594mm !important;
+          min-height:
+            594mm !important;
 
           font-size:
-            var(--resume-font-size, 13px) !important;
-        }
-
-        #paper .section {
-
-          break-inside: auto;
-
-        }
-
-        #paper .item-head {
-
-          break-after: avoid;
-
-          break-inside: avoid;
-
-        }
-
-        #paper li {
-
-          break-inside: avoid;
-
+            var(--resume-font-size, 13px)
+            !important;
         }
 
         #paper .section-title {
 
-          break-after: avoid;
+          break-after:
+            avoid !important;
+        }
 
+        #paper .item-head {
+
+          break-after:
+            avoid !important;
+
+          break-inside:
+            avoid !important;
+        }
+
+        #paper li {
+
+          break-inside:
+            avoid !important;
         }
 
         #paper .resume-photo {
 
-          print-color-adjust: exact;
+          print-color-adjust:
+            exact !important;
 
           -webkit-print-color-adjust:
-            exact;
+            exact !important;
         }
       }
 
@@ -1935,7 +2126,7 @@ ADAS软件工程师
   }
 
   /* =======================================================
-     PDF BUTTON
+     PDF
   ======================================================= */
 
   if (pdfBtn) {
@@ -1945,14 +2136,14 @@ ADAS软件工程师
       () => {
 
         /*
-         * 每次打印前重新安装，
-         * 确保当前字号生效。
+         * 导出前重新安装打印 CSS，
+         * 保证最新字号、主题色、模板状态生效。
          */
 
         installPrintStyle();
 
         /*
-         * 给浏览器一点时间应用 CSS
+         * 给浏览器一点时间应用样式。
          */
 
         setTimeout(
@@ -1961,14 +2152,14 @@ ADAS软件工程师
             window.print();
 
           },
-          80
+          100
         );
       }
     );
   }
 
   /* =======================================================
-     RESPONSIVE UPDATE
+     RESIZE
   ======================================================= */
 
   window.addEventListener(
@@ -1988,16 +2179,20 @@ ADAS软件工程师
   normalizeState();
 
   /*
-   * 关键：
-   * 无论旧 index.html 中 max 是多少，
-   * 页面启动时都强制改成 18。
+   * 强制升级旧版字号滑块：
+   * 10 ~ 18
    */
 
   if (size) {
 
-    size.min = "10";
-    size.max = "18";
-    size.step = "0.5";
+    size.min =
+      "10";
+
+    size.max =
+      "18";
+
+    size.step =
+      "0.5";
   }
 
   syncControls();
@@ -2005,27 +2200,6 @@ ADAS软件工程师
   createTemplatePreview();
 
   updatePhotoUI();
-
-  save();
-
-  /*
-   * 如果当前没有简历内容，
-   * 加载示例，方便首次打开。
-   *
-   * 如果已有 localStorage 内容，
-   * 则绝不覆盖。
-   */
-
-  if (
-    source &&
-    !clean(source.value)
-  ) {
-
-    /*
-     * 不自动加载示例。
-     * 保持空白状态。
-     */
-  }
 
   installPrintStyle();
 
@@ -2045,14 +2219,14 @@ ADAS软件工程师
 
         navigator.serviceWorker
           .register(
-            "./sw.js?v=1.2.4"
+            "./sw.js?v=1.2.5"
           )
           .then(reg => {
 
             reg.update();
 
             console.log(
-              "ResumeFlow V1.2.4 Service Worker ready"
+              "ResumeFlow V1.2.5 Service Worker ready"
             );
           })
           .catch(error => {
