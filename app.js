@@ -1496,180 +1496,191 @@ function paginatePreview() {
 }
 
 
+/* =======================================================
+   RENDER
+   V1.3.3
 
-  /* =======================================================
-     RENDER
-  ======================================================= */
+   修复：
+   1. 自动分页只执行一次
+   2. 防止 A4 套 A4
+   3. 保持原有模板 / 主题 / 字体 / 缩放功能
+   4. 自动分页完成后再应用缩放
+======================================================= */
 
-  function render() {
+function render() {
 
-    if (!paper) {
-      return;
-    }
+  if (!paper) {
+    return;
+  }
 
-    const data =
-      parseResume(
-        source
-          ? source.value
-          : ""
-      );
-
-    const theme =
-      THEMES[state.theme] ||
-      THEMES.blue;
-
-    /*
-     * 非自动模式：
-     * 保持 V1.2.5 原来的结构
-     */
-    paper.className =
-      `paper ${state.template} page-${state.pageMode}`;
-
-    /*
-     * 主题色
-     */
-
-    paper.style.setProperty(
-      "--accent",
-      theme.main
+  const data =
+    parseResume(
+      source
+        ? source.value
+        : ""
     );
 
-    paper.style.setProperty(
-      "--accent-soft",
-      theme.light
-    );
+  const theme =
+    THEMES[state.theme] ||
+    THEMES.blue;
 
-    paper.style.setProperty(
-      "--resume-accent",
-      theme.main
-    );
 
-    paper.style.setProperty(
-      "--resume-accent-light",
-      theme.light
-    );
+  /* =====================================================
+     主题色
+  ===================================================== */
 
-    /*
-     * 字号
-     */
+  paper.style.setProperty(
+    "--accent",
+    theme.main
+  );
 
-    paper.style.setProperty(
-      "--resume-font-size",
-      `${state.fontSize}px`
-    );
+  paper.style.setProperty(
+    "--accent-soft",
+    theme.light
+  );
 
-    /*
-     * 缩放
-     */
+  paper.style.setProperty(
+    "--resume-accent",
+    theme.main
+  );
 
-    paper.style.setProperty(
-      "--resume-zoom",
-      state.zoom
-    );
+  paper.style.setProperty(
+    "--resume-accent-light",
+    theme.light
+  );
 
-    /*
-     * 主题按钮
-     */
 
-    if (themes) {
+  /* =====================================================
+     字号
+  ===================================================== */
 
-      themes
-        .querySelectorAll(
-          "[data-theme]"
-        )
-        .forEach(button => {
+  paper.style.setProperty(
+    "--resume-font-size",
+    `${state.fontSize}px`
+  );
 
-          const name =
-            button.dataset.theme;
 
-          const item =
-            THEMES[name];
+  /* =====================================================
+     缩放
+  ===================================================== */
 
-          if (!item) {
-            return;
-          }
+  paper.style.setProperty(
+    "--resume-zoom",
+    state.zoom
+  );
 
-          button.style.setProperty(
-            "--theme-color",
-            item.main
-          );
 
-          button.classList.toggle(
-            "active",
-            name === state.theme
-          );
-        });
-    }
+  /* =====================================================
+     主题按钮
+  ===================================================== */
 
-    /*
-     * 正常渲染
-     */
+  if (themes) {
 
-    paper.innerHTML =
-      renderHeader(data) +
-      data.sections
-        .map(renderSection)
-        .join("");
+    themes
+      .querySelectorAll(
+        "[data-theme]"
+      )
+      .forEach(button => {
 
-    applyFont();
+        const name =
+          button.dataset.theme;
 
-    /*
-     * 自动模式：
-     * 等待浏览器完成 layout 后再分页。
-     */
-    if (
-      state.pageMode ===
-      "auto"
-    ) {
+        const item =
+          THEMES[name];
 
-      requestAnimationFrame(() => {
+        if (!item) {
+          return;
+        }
 
-        paginatePreview();
+        button.style.setProperty(
+          "--theme-color",
+          item.main
+        );
 
-        /*
-         * 重新应用字体
-         */
-        applyFont();
-
-        paper.style.transform =
-          `scale(${state.zoom})`;
-
-        updateScaleSpace();
-
-        /*
-         * 图片 / 字体在 iPad 上可能还需要一次 layout
-         */
-        requestAnimationFrame(() => {
-
-          /*
-           * 如果页面已经存在，
-           * 再重新计算一次分页。
-           *
-           * 这样可以处理证件照加载、
-           * 字体加载造成的高度变化。
-           */
-
-          paginatePreview();
-
-          applyFont();
-
-          paper.style.transform =
-            `scale(${state.zoom})`;
-
-          updateScaleSpace();
-
-        });
+        button.classList.toggle(
+          "active",
+          name === state.theme
+        );
 
       });
 
-    } else {
+  }
+
+
+  /* =====================================================
+     正常渲染原始简历内容
+  ===================================================== */
+
+  paper.className =
+    `paper ${state.template} page-${state.pageMode}`;
+
+  paper.innerHTML =
+    renderHeader(data) +
+    data.sections
+      .map(renderSection)
+      .join("");
+
+
+  /* =====================================================
+     字体
+  ===================================================== */
+
+  applyFont();
+
+
+  /* =====================================================
+     自动分页
+     
+     关键：
+     paginatePreview() 只调用一次。
+
+     之前第二次调用会把已经生成的
+     .resume-page 再次当成内容分页，
+     从而造成：
+
+     A4
+       └── A4
+           └── 简历内容
+  ===================================================== */
+
+  if (
+    state.pageMode ===
+    "auto"
+  ) {
+
+    requestAnimationFrame(() => {
+
+      paginatePreview();
+
+      /*
+       * 分页完成后，
+       * 再给真正的页面列表设置缩放。
+       */
+      applyFont();
 
       paper.style.transform =
         `scale(${state.zoom})`;
 
       updateScaleSpace();
-    }
+
+    });
+
+  } else {
+
+    /*
+     * 一页 / 两页模式
+     * 保持原来的行为。
+     */
+
+    paper.style.transform =
+      `scale(${state.zoom})`;
+
+    updateScaleSpace();
+
   }
+
+}
+ 
 
   /* =======================================================
      FONT
