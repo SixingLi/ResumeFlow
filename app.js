@@ -1268,16 +1268,19 @@ function installPaginationStyle() {
 }
 
 
-
 /* =======================================================
    A4 AUTO PAGINATION
-   V1.3.1
+   V1.3.2
 
-   修复：
-   1. 不再产生“外层 A4 + 内层 A4”
-   2. 每个 resume-page 都是唯一的 A4 页面
-   3. 保留原有模板 class
-   4. 保留原有 .paper 模板样式
+   结构：
+
+   #paper.preview-stack
+       ├── .paper.resume-page
+       ├── .paper.resume-page
+       └── .paper.resume-page
+
+   #paper 本身不是 A4
+   .resume-page 才是真正的 A4
 ======================================================= */
 
 function paginatePreview() {
@@ -1287,16 +1290,13 @@ function paginatePreview() {
   }
 
   /*
-   * 取出已经完成渲染的内容。
-   *
-   * 此时 paper 中是：
+   * 取得当前已经完成渲染的内容：
    *
    * header
    * section
    * section
    * section
-   *
-   * 不再重新解析简历。
+   * ...
    */
   const nodes =
     Array.from(
@@ -1308,89 +1308,80 @@ function paginatePreview() {
     );
 
   /*
-   * 清空原来的连续页面
+   * 清空原来的连续内容
    */
   paper.innerHTML = "";
 
   /*
-   * 外层只作为“页面列表容器”
+   * 关键：
    *
-   * 注意：
-   * 不再给它保留 template class，
-   * 避免 .paper.tech / .paper.blue
-   * 之类的模板样式作用到外层。
+   * 外层分页容器绝对不能有 .paper
+   *
+   * 因为 .paper 本身就是 A4。
    */
   paper.className =
-    "paper preview-stack";
+    "preview-stack";
+
 
   /*
    * 创建真正的一张 A4
    */
   function createPage() {
 
-    /*
-     * 每一页仍然保留 .paper，
-     * 这样原有：
-     *
-     * .paper.tech
-     * .paper.blue
-     * .paper.minimal
-     * .paper.terminal
-     * .paper.grayblue
-     * .paper.stripe
-     * .paper.business
-     * .paper.photo
-     *
-     * 全部继续生效。
-     */
     const page =
       document.createElement(
         "div"
       );
 
+    /*
+     * 这里才使用 .paper
+     *
+     * 因为这一层就是实际的 A4 页面。
+     */
     page.className =
       `paper resume-page ${state.template} page-auto`;
 
+
     /*
-     * 关键：
-     * 每个子页面独立继承当前主题色
+     * 主题色
      */
+    const theme =
+      THEMES[state.theme] ||
+      THEMES.blue;
+
+
     page.style.setProperty(
       "--accent",
-      THEMES[state.theme].main
+      theme.main
     );
 
     page.style.setProperty(
       "--accent-soft",
-      THEMES[state.theme].light
+      theme.light
     );
 
     page.style.setProperty(
       "--resume-accent",
-      THEMES[state.theme].main
+      theme.main
     );
 
     page.style.setProperty(
       "--resume-accent-light",
-      THEMES[state.theme].light
+      theme.light
     );
 
+
     /*
-     * 当前正文大小
+     * 正文字号
      */
     page.style.setProperty(
       "--resume-font-size",
       `${state.fontSize}px`
     );
 
+
     /*
-     * 非常重要：
-     *
-     * 子页面虽然仍然使用 .paper，
-     * 但它自己就是 A4。
-     *
-     * 不允许再出现第二层 paper 的
-     * 默认布局效果。
+     * A4 尺寸
      */
     page.style.boxSizing =
       "border-box";
@@ -1401,8 +1392,14 @@ function paginatePreview() {
     page.style.height =
       "var(--paper-h)";
 
+    page.style.minWidth =
+      "var(--paper-w)";
+
     page.style.minHeight =
       "var(--paper-h)";
+
+    page.style.maxWidth =
+      "var(--paper-w)";
 
     page.style.maxHeight =
       "var(--paper-h)";
@@ -1422,28 +1419,37 @@ function paginatePreview() {
     page.style.background =
       "#fff";
 
-    paper.appendChild(page);
+
+    /*
+     * 加入分页容器
+     */
+    paper.appendChild(
+      page
+    );
 
     return page;
   }
 
+
+  /*
+   * 第一页
+   */
   let page =
     createPage();
 
+
   /*
-   * 逐个放入：
-   *
-   * header
-   * section
-   * section
-   * ...
+   * 按模块依次放入
    */
   nodes.forEach(node => {
 
-    page.appendChild(node);
+    page.appendChild(
+      node
+    );
+
 
     /*
-     * 当前页面内容超过 A4 高度
+     * 当前页面超过 A4 高度
      */
     if (
       page.scrollHeight >
@@ -1451,28 +1457,31 @@ function paginatePreview() {
     ) {
 
       /*
-       * 如果当前页已经存在其它内容，
-       * 则把刚刚加入的模块移到下一页。
+       * 如果当前页面已经有其它内容，
+       * 将刚刚加入的模块移动到下一页。
        */
       if (
         page.children.length > 1
       ) {
 
-        page.removeChild(node);
+        page.removeChild(
+          node
+        );
 
         page =
           createPage();
 
-        page.appendChild(node);
+        page.appendChild(
+          node
+        );
 
       } else {
 
         /*
-         * 如果单个 section 本身就超过一页，
-         * 不强制拆分。
+         * 单个模块本身超过一页。
          *
-         * 让它保持当前页面，
-         * 避免 JS 进入无限分页。
+         * 不继续创建空页面，
+         * 防止无限分页。
          */
         console.warn(
           "ResumeFlow: 单个内容模块超过一页。",
@@ -1485,6 +1494,8 @@ function paginatePreview() {
   });
 
 }
+
+
 
   /* =======================================================
      RENDER
