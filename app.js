@@ -804,67 +804,419 @@ ADAS软件工程师
     `;
   }
 
-  /* =======================================================
-     V1.3 A4 PAGINATION CSS
-  ======================================================= */
 
-  function installPaginationStyle() {
+/* =======================================================
+   V1.3.1 PAGINATION STYLE
+======================================================= */
 
-    const old =
-      document.getElementById(
-        "resumeflow-pagination-v130"
-      );
+function installPaginationStyle() {
 
-    if (old) {
-      old.remove();
+  const old =
+    document.getElementById(
+      "resumeflow-pagination-v131"
+    );
+
+  if (old) {
+    old.remove();
+  }
+
+  const style =
+    document.createElement(
+      "style"
+    );
+
+  style.id =
+    "resumeflow-pagination-v131";
+
+  style.textContent = `
+
+    /* ==================================================
+       外层：
+       只负责排列多个 A4
+    ================================================== */
+
+    #paper.preview-stack {
+
+      width: auto !important;
+
+      min-width: 0 !important;
+
+      min-height: 0 !important;
+
+      height: auto !important;
+
+      max-height: none !important;
+
+      padding: 0 !important;
+
+      margin: 0 !important;
+
+      background: transparent !important;
+
+      box-shadow: none !important;
+
+      border: 0 !important;
+
+      display: flex !important;
+
+      flex-direction: column !important;
+
+      align-items: center !important;
+
+      gap: 24px !important;
+
+      position: relative;
+
     }
 
-    const style =
-      document.createElement("style");
 
-    style.id =
-      "resumeflow-pagination-v130";
+    /* ==================================================
+       禁止外层模板效果
+    ================================================== */
 
-    style.textContent = `
+    #paper.preview-stack::before {
 
-      /* ==========================================
-         A4 自动分页预览
-      ========================================== */
+      display: none !important;
+
+      content: none !important;
+
+    }
+
+
+    /* ==================================================
+       每一个 resume-page
+       才是真正的 A4
+    ================================================== */
+
+    #paper.preview-stack
+    > .resume-page {
+
+      width: var(--paper-w) !important;
+
+      height: var(--paper-h) !important;
+
+      min-width: var(--paper-w) !important;
+
+      min-height: var(--paper-h) !important;
+
+      max-width: var(--paper-w) !important;
+
+      max-height: var(--paper-h) !important;
+
+      flex: 0 0 var(--paper-h) !important;
+
+      box-sizing: border-box !important;
+
+      margin: 0 !important;
+
+      position: relative !important;
+
+      overflow: hidden !important;
+
+      background: #fff !important;
+
+      box-shadow:
+        0 8px 30px #00000012 !important;
+
+    }
+
+
+    /* ==================================================
+       模板样式继续作用于每一页
+    ================================================== */
+
+    #paper.preview-stack
+    > .resume-page.tech {
+
+      border-top:
+        4px solid var(--accent);
+
+    }
+
+
+    #paper.preview-stack
+    > .resume-page.blue
+    .section-title {
+
+      border-bottom-width: 2px;
+
+    }
+
+
+    #paper.preview-stack
+    > .resume-page.blue
+    .name {
+
+      color: var(--accent);
+
+    }
+
+
+    #paper.preview-stack
+    > .resume-page.minimal {
+
+      padding: 48px 58px !important;
+
+    }
+
+
+    #paper.preview-stack
+    > .resume-page.minimal
+    .name {
+
+      font-size: 29px;
+
+    }
+
+
+    #paper.preview-stack
+    > .resume-page.minimal
+    .section-title {
+
+      border: 0;
+
+      padding: 0;
+
+      letter-spacing: .13em;
+
+      color: var(--accent);
+
+    }
+
+
+    #paper.preview-stack
+    > .resume-page.minimal
+    .contact {
+
+      border-bottom:
+        1px solid var(--line);
+
+      padding-bottom: 14px;
+
+    }
+
+
+    #paper.preview-stack
+    > .resume-page.terminal {
+
+      font-family:
+        "SFMono-Regular",
+        Consolas,
+        "Liberation Mono",
+        "PingFang SC",
+        monospace;
+
+    }
+
+
+    #paper.preview-stack
+    > .resume-page.terminal
+    .name {
+
+      font-size: 27px;
+
+    }
+
+
+    #paper.preview-stack
+    > .resume-page.terminal
+    .title {
+
+      color: var(--accent);
+
+    }
+
+
+    #paper.preview-stack
+    > .resume-page.terminal
+    .section-title {
+
+      border-bottom: 0;
+
+      background: var(--accent);
+
+      color: #fff;
+
+      padding: 4px 8px;
+
+      display: inline-block;
+
+      letter-spacing: .04em;
+
+    }
+
+
+    #paper.preview-stack
+    > .resume-page.grayblue
+    .section-title {
+
+      color: #40576b;
+
+      border-bottom-color:
+        #8fa0ad;
+
+    }
+
+
+    #paper.preview-stack
+    > .resume-page.grayblue
+    .name {
+
+      color: #253746;
+
+    }
+
+
+    #paper.preview-stack
+    > .resume-page.stripe {
+
+      padding-left: 58px !important;
+
+    }
+
+
+    #paper.preview-stack
+    > .resume-page.stripe::before {
+
+      content: "";
+
+      position: absolute;
+
+      left: 0;
+
+      top: 0;
+
+      bottom: 0;
+
+      width: 8px;
+
+      background: var(--accent);
+
+    }
+
+
+    #paper.preview-stack
+    > .resume-page.business
+    .name {
+
+      font-weight: 700;
+
+    }
+
+
+    #paper.preview-stack
+    > .resume-page.business
+    .section-title {
+
+      border-bottom:
+        2px solid var(--accent);
+
+      font-size: 12px;
+
+      letter-spacing: .16em;
+
+      padding-bottom: 7px;
+
+    }
+
+
+    #paper.preview-stack
+    > .resume-page.photo
+    .resume-photo {
+
+      width: 92px;
+
+      height: 122px;
+
+    }
+
+
+    /* ==================================================
+       分页保护
+    ================================================== */
+
+    #paper.preview-stack
+    > .resume-page
+    .section {
+
+      break-inside: avoid;
+
+      page-break-inside: avoid;
+
+    }
+
+
+    #paper.preview-stack
+    > .resume-page
+    .section-title {
+
+      break-after: avoid;
+
+      page-break-after: avoid;
+
+    }
+
+
+    #paper.preview-stack
+    > .resume-page
+    .item-head {
+
+      break-inside: avoid;
+
+      page-break-inside: avoid;
+
+    }
+
+
+    #paper.preview-stack
+    > .resume-page
+    li {
+
+      break-inside: avoid;
+
+      page-break-inside: avoid;
+
+    }
+
+
+    /* ==================================================
+       小屏 / iPad
+    ================================================== */
+
+    @media(max-width:760px){
 
       #paper.preview-stack {
 
-        width: var(--paper-w);
-
-        min-height: 0;
-
-        height: auto;
-
-        padding: 0 !important;
-
-        margin: 0;
-
-        background: transparent;
-
-        box-shadow: none;
-
-        display: flex;
-
-        flex-direction: column;
-
-        align-items: center;
-
-        gap: 24px;
-
-        position: relative;
-
-        transform-origin: top center;
+        gap: 16px !important;
 
       }
 
+    }
 
-      #paper.preview-stack::before {
 
-        display: none !important;
+    /* ==================================================
+       打印
+    ================================================== */
+
+    @media print {
+
+      #paper.preview-stack {
+
+        display: block !important;
+
+        width: 210mm !important;
+
+        height: auto !important;
+
+        min-height: 0 !important;
+
+        padding: 0 !important;
+
+        margin: 0 !important;
+
+        background: #fff !important;
+
+        box-shadow: none !important;
 
       }
 
@@ -872,489 +1224,267 @@ ADAS软件工程师
       #paper.preview-stack
       > .resume-page {
 
-        width: var(--paper-w);
+        width: 210mm !important;
 
-        height: var(--paper-h);
+        height: 297mm !important;
 
-        min-height: var(--paper-h);
+        min-width: 210mm !important;
 
-        max-height: var(--paper-h);
+        min-height: 297mm !important;
 
-        flex: 0 0 var(--paper-h);
+        max-width: 210mm !important;
 
-        box-sizing: border-box;
+        max-height: 297mm !important;
 
-        position: relative;
+        margin: 0 !important;
 
-        overflow: hidden;
+        box-sizing: border-box !important;
 
-        background: #fff;
+        overflow: hidden !important;
 
-        box-shadow:
-          0 8px 30px #00000012;
+        box-shadow: none !important;
 
-        padding: 52px 62px;
+        break-after: page;
 
-      }
-
-
-      /*
-       * 第一张页面保留技术经典顶部色线
-       */
-
-      #paper.preview-stack
-      > .resume-page.tech {
-
-        border-top:
-          4px solid var(--accent);
-
-      }
-
-
-      /*
-       * 工程师蓝
-       */
-
-      #paper.preview-stack
-      > .resume-page.blue
-      .section-title {
-
-        border-bottom-width: 2px;
+        page-break-after: always;
 
       }
 
 
       #paper.preview-stack
-      > .resume-page.blue
-      .name {
+      > .resume-page:last-child {
 
-        color: var(--accent);
+        break-after: auto;
 
-      }
-
-
-      /*
-       * 极简黑白
-       */
-
-      #paper.preview-stack
-      > .resume-page.minimal {
-
-        padding:
-          48px 58px;
+        page-break-after: auto;
 
       }
 
-
-      #paper.preview-stack
-      > .resume-page.minimal
-      .name {
-
-        font-size: 29px;
-
-      }
-
-
-      #paper.preview-stack
-      > .resume-page.minimal
-      .section-title {
-
-        border: 0;
-
-        padding: 0;
-
-        letter-spacing: .13em;
-
-        color: var(--accent);
-
-      }
-
-
-      #paper.preview-stack
-      > .resume-page.minimal
-      .contact {
-
-        border-bottom:
-          1px solid var(--line);
-
-        padding-bottom: 14px;
-
-      }
-
-
-      /*
-       * 代码终端
-       */
-
-      #paper.preview-stack
-      > .resume-page.terminal {
-
-        font-family:
-          "SFMono-Regular",
-          Consolas,
-          "Liberation Mono",
-          "PingFang SC",
-          monospace;
-
-      }
-
-
-      #paper.preview-stack
-      > .resume-page.terminal
-      .name {
-
-        font-size: 27px;
-
-      }
-
-
-      #paper.preview-stack
-      > .resume-page.terminal
-      .title {
-
-        color: var(--accent);
-
-      }
-
-
-      #paper.preview-stack
-      > .resume-page.terminal
-      .section-title {
-
-        border-bottom: 0;
-
-        background: var(--accent);
-
-        color: #fff;
-
-        padding: 4px 8px;
-
-        display: inline-block;
-
-        letter-spacing: .04em;
-
-      }
-
-
-      /*
-       * 科技灰蓝
-       */
-
-      #paper.preview-stack
-      > .resume-page.grayblue
-      .section-title {
-
-        color: #40576b;
-
-        border-bottom-color:
-          #8fa0ad;
-
-      }
-
-
-      #paper.preview-stack
-      > .resume-page.grayblue
-      .name {
-
-        color: #253746;
-
-      }
-
-
-      /*
-       * 左侧色带
-       */
-
-      #paper.preview-stack
-      > .resume-page.stripe::before {
-
-        content: "";
-
-        position: absolute;
-
-        left: 0;
-
-        top: 0;
-
-        bottom: 0;
-
-        width: 8px;
-
-        background: var(--accent);
-
-      }
-
-
-      #paper.preview-stack
-      > .resume-page.stripe {
-
-        padding-left: 58px;
-
-      }
-
-
-      /*
-       * 商务技术
-       */
-
-      #paper.preview-stack
-      > .resume-page.business
-      .name {
-
-        font-weight: 700;
-
-      }
-
-
-      #paper.preview-stack
-      > .resume-page.business
-      .section-title {
-
-        border-bottom:
-          2px solid var(--accent);
-
-        font-size: 12px;
-
-        letter-spacing: .16em;
-
-        padding-bottom: 7px;
-
-      }
-
-
-      /*
-       * 证件照技术
-       */
-
-      #paper.preview-stack
-      > .resume-page.photo
-      .resume-photo {
-
-        width: 92px;
-
-        height: 122px;
-
-      }
-
-
-      /*
-       * 分页时 section 尽量完整保留
-       */
-
-      #paper.preview-stack
-      .section {
-
-        break-inside: avoid;
-
-        page-break-inside: avoid;
-
-      }
-
-
-      #paper.preview-stack
-      .section-title {
-
-        break-after: avoid;
-
-        page-break-after: avoid;
-
-      }
-
-
-      #paper.preview-stack
-      .item-head {
-
-        break-inside: avoid;
-
-        page-break-inside: avoid;
-
-      }
-
-
-      #paper.preview-stack
-      li {
-
-        break-inside: avoid;
-
-        page-break-inside: avoid;
-
-      }
-
-
-      /*
-       * iPad / 小屏
-       */
-
-      @media(max-width:760px){
-
-        #paper.preview-stack {
-
-          gap: 16px;
-
-        }
-
-      }
-
-
-      /*
-       * 打印
-       */
-
-      @media print {
-
-        #paper.preview-stack {
-
-          display: block;
-
-          width: 210mm;
-
-          height: auto;
-
-          min-height: 0;
-
-          padding: 0 !important;
-
-          margin: 0 !important;
-
-          background: #fff;
-
-          box-shadow: none;
-
-          transform: none !important;
-
-        }
-
-
-        #paper.preview-stack
-        > .resume-page {
-
-          width: 210mm !important;
-
-          height: 297mm !important;
-
-          min-height: 297mm !important;
-
-          max-height: 297mm !important;
-
-          margin: 0 !important;
-
-          box-sizing: border-box !important;
-
-          overflow: hidden !important;
-
-          box-shadow: none !important;
-
-          break-after: page;
-
-          page-break-after: always;
-
-        }
-
-
-        #paper.preview-stack
-        > .resume-page:last-child {
-
-          break-after: auto;
-
-          page-break-after: auto;
-
-        }
-
-      }
-
-    `;
-
-    document.head.appendChild(style);
-  }
-
-  /* =======================================================
-     A4 AUTO PAGINATION
-  ======================================================= */
-
-  function paginatePreview() {
-
-    if (!paper) {
-      return;
     }
 
+  `;
+
+  document.head.appendChild(style);
+}
+
+
+
+/* =======================================================
+   A4 AUTO PAGINATION
+   V1.3.1
+
+   修复：
+   1. 不再产生“外层 A4 + 内层 A4”
+   2. 每个 resume-page 都是唯一的 A4 页面
+   3. 保留原有模板 class
+   4. 保留原有 .paper 模板样式
+======================================================= */
+
+function paginatePreview() {
+
+  if (!paper) {
+    return;
+  }
+
+  /*
+   * 取出已经完成渲染的内容。
+   *
+   * 此时 paper 中是：
+   *
+   * header
+   * section
+   * section
+   * section
+   *
+   * 不再重新解析简历。
+   */
+  const nodes =
+    Array.from(
+      paper.childNodes
+    ).filter(
+      node =>
+        node.nodeType ===
+        Node.ELEMENT_NODE
+    );
+
+  /*
+   * 清空原来的连续页面
+   */
+  paper.innerHTML = "";
+
+  /*
+   * 外层只作为“页面列表容器”
+   *
+   * 注意：
+   * 不再给它保留 template class，
+   * 避免 .paper.tech / .paper.blue
+   * 之类的模板样式作用到外层。
+   */
+  paper.className =
+    "paper preview-stack";
+
+  /*
+   * 创建真正的一张 A4
+   */
+  function createPage() {
+
     /*
-     * 取出当前已经渲染好的 header + sections
+     * 每一页仍然保留 .paper，
+     * 这样原有：
+     *
+     * .paper.tech
+     * .paper.blue
+     * .paper.minimal
+     * .paper.terminal
+     * .paper.grayblue
+     * .paper.stripe
+     * .paper.business
+     * .paper.photo
+     *
+     * 全部继续生效。
      */
-    const nodes =
-      Array.from(
-        paper.childNodes
-      ).filter(
-        node =>
-          node.nodeType ===
-          Node.ELEMENT_NODE
+    const page =
+      document.createElement(
+        "div"
       );
 
-    /*
-     * 清空连续长页面
-     */
-    paper.innerHTML = "";
+    page.className =
+      `paper resume-page ${state.template} page-auto`;
 
     /*
-     * 外层只负责页面堆叠
+     * 关键：
+     * 每个子页面独立继承当前主题色
      */
-    paper.className =
-      "paper preview-stack";
+    page.style.setProperty(
+      "--accent",
+      THEMES[state.theme].main
+    );
+
+    page.style.setProperty(
+      "--accent-soft",
+      THEMES[state.theme].light
+    );
+
+    page.style.setProperty(
+      "--resume-accent",
+      THEMES[state.theme].main
+    );
+
+    page.style.setProperty(
+      "--resume-accent-light",
+      THEMES[state.theme].light
+    );
 
     /*
-     * 创建真正的 A4 页面
+     * 当前正文大小
      */
-    function createPage() {
+    page.style.setProperty(
+      "--resume-font-size",
+      `${state.fontSize}px`
+    );
 
-      const page =
-        document.createElement(
-          "div"
-        );
+    /*
+     * 非常重要：
+     *
+     * 子页面虽然仍然使用 .paper，
+     * 但它自己就是 A4。
+     *
+     * 不允许再出现第二层 paper 的
+     * 默认布局效果。
+     */
+    page.style.boxSizing =
+      "border-box";
 
-      page.className =
-        `paper resume-page ${state.template}`;
+    page.style.width =
+      "var(--paper-w)";
+
+    page.style.height =
+      "var(--paper-h)";
+
+    page.style.minHeight =
+      "var(--paper-h)";
+
+    page.style.maxHeight =
+      "var(--paper-h)";
+
+    page.style.flex =
+      "0 0 var(--paper-h)";
+
+    page.style.margin =
+      "0";
+
+    page.style.position =
+      "relative";
+
+    page.style.overflow =
+      "hidden";
+
+    page.style.background =
+      "#fff";
+
+    paper.appendChild(page);
+
+    return page;
+  }
+
+  let page =
+    createPage();
+
+  /*
+   * 逐个放入：
+   *
+   * header
+   * section
+   * section
+   * ...
+   */
+  nodes.forEach(node => {
+
+    page.appendChild(node);
+
+    /*
+     * 当前页面内容超过 A4 高度
+     */
+    if (
+      page.scrollHeight >
+        page.clientHeight + 1
+    ) {
 
       /*
-       * 主题色和字号由外层继承
-       */
-
-      paper.appendChild(page);
-
-      return page;
-    }
-
-    let page =
-      createPage();
-
-    nodes.forEach(node => {
-
-      page.appendChild(node);
-
-      /*
-       * 页面高度超过 A4
+       * 如果当前页已经存在其它内容，
+       * 则把刚刚加入的模块移到下一页。
        */
       if (
-        page.scrollHeight >
-          page.clientHeight + 1
+        page.children.length > 1
       ) {
 
+        page.removeChild(node);
+
+        page =
+          createPage();
+
+        page.appendChild(node);
+
+      } else {
+
         /*
-         * 如果当前页已经有其它内容，
-         * 则把刚加入的模块移动到下一页。
+         * 如果单个 section 本身就超过一页，
+         * 不强制拆分。
+         *
+         * 让它保持当前页面，
+         * 避免 JS 进入无限分页。
          */
-        if (
-          page.children.length > 1
-        ) {
+        console.warn(
+          "ResumeFlow: 单个内容模块超过一页。",
+          node
+        );
 
-          page.removeChild(node);
-
-          page =
-            createPage();
-
-          page.appendChild(node);
-        }
       }
-    });
-  }
+    }
+
+  });
+
+}
 
   /* =======================================================
      RENDER
