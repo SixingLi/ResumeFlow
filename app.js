@@ -1,20 +1,37 @@
 /* =========================================================
-   ResumeFlow V1.2.5
-   Full Replacement Edition
+   ResumeFlow V1.3.0
+   A4 Auto Pagination Edition
 
-   修复：
-   1. 公司 / 项目标题与对应内容错位
-   2. 主题色失效
-   3. 正文字号最大值 15 -> 18
-   4. PDF 强制 10.5pt -> 使用当前字号
-   5. 兼容旧版 style.css 的 --accent / --accent-soft
-   6. 保留照片、模板、分页、字体、缩放、localStorage
+   基于 V1.2.5 修改
+
+   保留：
+   - TXT / MD / JSON 导入
+   - 拖拽导入
+   - Markdown 解析
+   - 公司 / 项目标题对应关系
+   - 证件照
+   - 8 个模板
+   - 6 个主题色
+   - 字体
+   - 正文字号 10 ~ 18
+   - 预览缩放
+   - localStorage
+   - 一页 / 两页 / 自动
+   - PDF
+   - Service Worker
+
+   V1.3 新增：
+   - 自动模式下真正生成多个 A4 页面
+   - 中间预览区所见即所得显示 A4 分页
+   - 每页固定 210mm × 297mm
+   - 页面之间显示间距和阴影
+   - 尽量保证 section 不跨页
 ========================================================= */
 
 (() => {
   "use strict";
 
-  const VERSION = "1.2.5";
+  const VERSION = "1.3.0";
 
   /* =======================================================
      DOM
@@ -79,7 +96,7 @@
   };
 
   /* =======================================================
-     THEME
+     THEMES
   ======================================================= */
 
   const THEMES = {
@@ -349,7 +366,6 @@ ADAS软件工程师
   ======================================================= */
 
   function parseMarkdown(text) {
-
     const lines = clean(text).split("\n");
 
     const result = {
@@ -362,7 +378,6 @@ ADAS软件工程师
     let current = null;
 
     for (const rawLine of lines) {
-
       const line = rawLine.trim();
 
       if (!line) {
@@ -373,50 +388,34 @@ ADAS软件工程师
         line.match(/^(#{1,6})\s+(.+)$/);
 
       if (heading) {
-
-        const level =
-          heading[1].length;
-
-        const title =
-          stripMD(heading[2]);
-
-        /* # 姓名 */
+        const level = heading[1].length;
+        const title = stripMD(heading[2]);
 
         if (
           level === 1 &&
           !result.name
         ) {
-
           result.name = title;
-
           continue;
         }
 
-        /* ## 工作经历 */
-
-        const type =
-          sectionType(title);
+        const type = sectionType(title);
 
         if (type) {
-
           current = {
-            type: type,
-            title: title,
+            type,
+            title,
             items: []
           };
 
           result.sections.push(current);
-
           continue;
         }
-
-        /* ### 公司 / 项目 */
 
         if (
           current &&
           level >= 3
         ) {
-
           current.items.push({
             type: "subheading",
             text: title
@@ -426,32 +425,23 @@ ADAS软件工程师
         }
       }
 
-      const plain =
-        stripMD(line);
-
-      /* 姓名下面第一行 */
+      const plain = stripMD(line);
 
       if (
         !current &&
         result.name &&
         !result.title
       ) {
-
         result.title = plain;
-
         continue;
       }
-
-      /* 第二行联系方式 */
 
       if (
         !current &&
         result.title &&
         !result.contact
       ) {
-
         result.contact = plain;
-
         continue;
       }
 
@@ -459,12 +449,9 @@ ADAS软件工程师
         continue;
       }
 
-      /* bullet */
-
       if (
         /^[-*+]\s+/.test(line)
       ) {
-
         current.items.push({
           type: "bullet",
           text: stripMD(
@@ -474,9 +461,7 @@ ADAS软件工程师
             )
           )
         });
-
       } else {
-
         current.items.push({
           type: "text",
           text: plain
@@ -492,11 +477,8 @@ ADAS软件工程师
   ======================================================= */
 
   function parseJSON(text) {
-
     try {
-
-      const data =
-        JSON.parse(text);
+      const data = JSON.parse(text);
 
       if (
         !data ||
@@ -538,32 +520,25 @@ ADAS软件工程师
       ];
 
       keys.forEach(key => {
-
         if (!data[key]) {
           return;
         }
 
         const section = {
           type: key,
-          title:
-            SECTION_ALIASES[key][0],
+          title: SECTION_ALIASES[key][0],
           items: []
         };
 
-        const value =
-          data[key];
+        const value = data[key];
 
-        if (
-          Array.isArray(value)
-        ) {
-
+        if (Array.isArray(value)) {
           value.forEach(item => {
 
             if (
               typeof item ===
               "string"
             ) {
-
               section.items.push({
                 type: "text",
                 text: item
@@ -575,9 +550,8 @@ ADAS软件工程师
             if (
               item &&
               typeof item ===
-                "object"
+              "object"
             ) {
-
               const heading =
                 item.title ||
                 item.name ||
@@ -586,21 +560,16 @@ ADAS软件工程师
                 "";
 
               if (heading) {
-
                 section.items.push({
                   type: "subheading",
                   text: heading
                 });
               }
 
-              if (
-                item.description
-              ) {
-
+              if (item.description) {
                 section.items.push({
                   type: "text",
-                  text:
-                    item.description
+                  text: item.description
                 });
               }
 
@@ -609,10 +578,8 @@ ADAS软件工程师
                   item.bullets
                 )
               ) {
-
                 item.bullets.forEach(
                   bullet => {
-
                     section.items.push({
                       type: "bullet",
                       text: bullet
@@ -627,22 +594,18 @@ ADAS软件工程师
           typeof value ===
           "string"
         ) {
-
           section.items.push({
             type: "text",
             text: value
           });
         }
 
-        result.sections.push(
-          section
-        );
+        result.sections.push(section);
       });
 
       return result;
 
     } catch {
-
       return null;
     }
   }
@@ -652,11 +615,9 @@ ADAS软件工程师
   ======================================================= */
 
   function parseResume(text) {
-
     text = clean(text);
 
     if (!text) {
-
       return {
         name: "姓名",
         title: "求职职位",
@@ -665,8 +626,7 @@ ADAS软件工程师
       };
     }
 
-    const json =
-      parseJSON(text);
+    const json = parseJSON(text);
 
     if (json) {
       return json;
@@ -680,7 +640,6 @@ ADAS软件工程师
   ======================================================= */
 
   function renderHeader(data) {
-
     const photo =
       localStorage.getItem(
         STORAGE.photo
@@ -692,13 +651,12 @@ ADAS软件工程师
       state.showPhoto &&
       photo
     ) {
-
       photoHTML = `
         <div class="resume-photo">
           <img
             src="${photo}"
             alt="证件照"
-          >
+          />
         </div>
       `;
     }
@@ -738,24 +696,10 @@ ADAS软件工程师
   }
 
   /* =======================================================
-     SECTION RENDER
-     
-     重点：
-     所有元素按照原 Markdown 顺序输出。
-
-     ### 公司A
-     日期
-     - A
-     - A
-
-     ### 公司B
-     日期
-     - B
-     - B
+     SECTION
   ======================================================= */
 
   function renderSection(section) {
-
     if (
       !section.items ||
       !section.items.length
@@ -764,13 +708,10 @@ ADAS软件工程师
     }
 
     let bodyHTML = "";
-
     let bulletHTML = "";
-
     let hasBullet = false;
 
     function flushBullets() {
-
       if (!hasBullet) {
         return;
       }
@@ -782,7 +723,6 @@ ADAS软件工程师
       `;
 
       bulletHTML = "";
-
       hasBullet = false;
     }
 
@@ -797,13 +737,10 @@ ADAS软件工程师
         return;
       }
 
-      /* 公司 / 项目标题 */
-
       if (
         item.type ===
         "subheading"
       ) {
-
         flushBullets();
 
         bodyHTML += `
@@ -815,13 +752,10 @@ ADAS软件工程师
         return;
       }
 
-      /* 日期 / 普通文本 */
-
       if (
         item.type ===
         "text"
       ) {
-
         flushBullets();
 
         bodyHTML += `
@@ -833,13 +767,10 @@ ADAS软件工程师
         return;
       }
 
-      /* bullet */
-
       if (
         item.type ===
         "bullet"
       ) {
-
         hasBullet = true;
 
         bulletHTML += `
@@ -874,6 +805,558 @@ ADAS软件工程师
   }
 
   /* =======================================================
+     V1.3 A4 PAGINATION CSS
+  ======================================================= */
+
+  function installPaginationStyle() {
+
+    const old =
+      document.getElementById(
+        "resumeflow-pagination-v130"
+      );
+
+    if (old) {
+      old.remove();
+    }
+
+    const style =
+      document.createElement("style");
+
+    style.id =
+      "resumeflow-pagination-v130";
+
+    style.textContent = `
+
+      /* ==========================================
+         A4 自动分页预览
+      ========================================== */
+
+      #paper.preview-stack {
+
+        width: var(--paper-w);
+
+        min-height: 0;
+
+        height: auto;
+
+        padding: 0 !important;
+
+        margin: 0;
+
+        background: transparent;
+
+        box-shadow: none;
+
+        display: flex;
+
+        flex-direction: column;
+
+        align-items: center;
+
+        gap: 24px;
+
+        position: relative;
+
+        transform-origin: top center;
+
+      }
+
+
+      #paper.preview-stack::before {
+
+        display: none !important;
+
+      }
+
+
+      #paper.preview-stack
+      > .resume-page {
+
+        width: var(--paper-w);
+
+        height: var(--paper-h);
+
+        min-height: var(--paper-h);
+
+        max-height: var(--paper-h);
+
+        flex: 0 0 var(--paper-h);
+
+        box-sizing: border-box;
+
+        position: relative;
+
+        overflow: hidden;
+
+        background: #fff;
+
+        box-shadow:
+          0 8px 30px #00000012;
+
+        padding: 52px 62px;
+
+      }
+
+
+      /*
+       * 第一张页面保留技术经典顶部色线
+       */
+
+      #paper.preview-stack
+      > .resume-page.tech {
+
+        border-top:
+          4px solid var(--accent);
+
+      }
+
+
+      /*
+       * 工程师蓝
+       */
+
+      #paper.preview-stack
+      > .resume-page.blue
+      .section-title {
+
+        border-bottom-width: 2px;
+
+      }
+
+
+      #paper.preview-stack
+      > .resume-page.blue
+      .name {
+
+        color: var(--accent);
+
+      }
+
+
+      /*
+       * 极简黑白
+       */
+
+      #paper.preview-stack
+      > .resume-page.minimal {
+
+        padding:
+          48px 58px;
+
+      }
+
+
+      #paper.preview-stack
+      > .resume-page.minimal
+      .name {
+
+        font-size: 29px;
+
+      }
+
+
+      #paper.preview-stack
+      > .resume-page.minimal
+      .section-title {
+
+        border: 0;
+
+        padding: 0;
+
+        letter-spacing: .13em;
+
+        color: var(--accent);
+
+      }
+
+
+      #paper.preview-stack
+      > .resume-page.minimal
+      .contact {
+
+        border-bottom:
+          1px solid var(--line);
+
+        padding-bottom: 14px;
+
+      }
+
+
+      /*
+       * 代码终端
+       */
+
+      #paper.preview-stack
+      > .resume-page.terminal {
+
+        font-family:
+          "SFMono-Regular",
+          Consolas,
+          "Liberation Mono",
+          "PingFang SC",
+          monospace;
+
+      }
+
+
+      #paper.preview-stack
+      > .resume-page.terminal
+      .name {
+
+        font-size: 27px;
+
+      }
+
+
+      #paper.preview-stack
+      > .resume-page.terminal
+      .title {
+
+        color: var(--accent);
+
+      }
+
+
+      #paper.preview-stack
+      > .resume-page.terminal
+      .section-title {
+
+        border-bottom: 0;
+
+        background: var(--accent);
+
+        color: #fff;
+
+        padding: 4px 8px;
+
+        display: inline-block;
+
+        letter-spacing: .04em;
+
+      }
+
+
+      /*
+       * 科技灰蓝
+       */
+
+      #paper.preview-stack
+      > .resume-page.grayblue
+      .section-title {
+
+        color: #40576b;
+
+        border-bottom-color:
+          #8fa0ad;
+
+      }
+
+
+      #paper.preview-stack
+      > .resume-page.grayblue
+      .name {
+
+        color: #253746;
+
+      }
+
+
+      /*
+       * 左侧色带
+       */
+
+      #paper.preview-stack
+      > .resume-page.stripe::before {
+
+        content: "";
+
+        position: absolute;
+
+        left: 0;
+
+        top: 0;
+
+        bottom: 0;
+
+        width: 8px;
+
+        background: var(--accent);
+
+      }
+
+
+      #paper.preview-stack
+      > .resume-page.stripe {
+
+        padding-left: 58px;
+
+      }
+
+
+      /*
+       * 商务技术
+       */
+
+      #paper.preview-stack
+      > .resume-page.business
+      .name {
+
+        font-weight: 700;
+
+      }
+
+
+      #paper.preview-stack
+      > .resume-page.business
+      .section-title {
+
+        border-bottom:
+          2px solid var(--accent);
+
+        font-size: 12px;
+
+        letter-spacing: .16em;
+
+        padding-bottom: 7px;
+
+      }
+
+
+      /*
+       * 证件照技术
+       */
+
+      #paper.preview-stack
+      > .resume-page.photo
+      .resume-photo {
+
+        width: 92px;
+
+        height: 122px;
+
+      }
+
+
+      /*
+       * 分页时 section 尽量完整保留
+       */
+
+      #paper.preview-stack
+      .section {
+
+        break-inside: avoid;
+
+        page-break-inside: avoid;
+
+      }
+
+
+      #paper.preview-stack
+      .section-title {
+
+        break-after: avoid;
+
+        page-break-after: avoid;
+
+      }
+
+
+      #paper.preview-stack
+      .item-head {
+
+        break-inside: avoid;
+
+        page-break-inside: avoid;
+
+      }
+
+
+      #paper.preview-stack
+      li {
+
+        break-inside: avoid;
+
+        page-break-inside: avoid;
+
+      }
+
+
+      /*
+       * iPad / 小屏
+       */
+
+      @media(max-width:760px){
+
+        #paper.preview-stack {
+
+          gap: 16px;
+
+        }
+
+      }
+
+
+      /*
+       * 打印
+       */
+
+      @media print {
+
+        #paper.preview-stack {
+
+          display: block;
+
+          width: 210mm;
+
+          height: auto;
+
+          min-height: 0;
+
+          padding: 0 !important;
+
+          margin: 0 !important;
+
+          background: #fff;
+
+          box-shadow: none;
+
+          transform: none !important;
+
+        }
+
+
+        #paper.preview-stack
+        > .resume-page {
+
+          width: 210mm !important;
+
+          height: 297mm !important;
+
+          min-height: 297mm !important;
+
+          max-height: 297mm !important;
+
+          margin: 0 !important;
+
+          box-sizing: border-box !important;
+
+          overflow: hidden !important;
+
+          box-shadow: none !important;
+
+          break-after: page;
+
+          page-break-after: always;
+
+        }
+
+
+        #paper.preview-stack
+        > .resume-page:last-child {
+
+          break-after: auto;
+
+          page-break-after: auto;
+
+        }
+
+      }
+
+    `;
+
+    document.head.appendChild(style);
+  }
+
+  /* =======================================================
+     A4 AUTO PAGINATION
+  ======================================================= */
+
+  function paginatePreview() {
+
+    if (!paper) {
+      return;
+    }
+
+    /*
+     * 取出当前已经渲染好的 header + sections
+     */
+    const nodes =
+      Array.from(
+        paper.childNodes
+      ).filter(
+        node =>
+          node.nodeType ===
+          Node.ELEMENT_NODE
+      );
+
+    /*
+     * 清空连续长页面
+     */
+    paper.innerHTML = "";
+
+    /*
+     * 外层只负责页面堆叠
+     */
+    paper.className =
+      "paper preview-stack";
+
+    /*
+     * 创建真正的 A4 页面
+     */
+    function createPage() {
+
+      const page =
+        document.createElement(
+          "div"
+        );
+
+      page.className =
+        `paper resume-page ${state.template}`;
+
+      /*
+       * 主题色和字号由外层继承
+       */
+
+      paper.appendChild(page);
+
+      return page;
+    }
+
+    let page =
+      createPage();
+
+    nodes.forEach(node => {
+
+      page.appendChild(node);
+
+      /*
+       * 页面高度超过 A4
+       */
+      if (
+        page.scrollHeight >
+          page.clientHeight + 1
+      ) {
+
+        /*
+         * 如果当前页已经有其它内容，
+         * 则把刚加入的模块移动到下一页。
+         */
+        if (
+          page.children.length > 1
+        ) {
+
+          page.removeChild(node);
+
+          page =
+            createPage();
+
+          page.appendChild(node);
+        }
+      }
+    });
+  }
+
+  /* =======================================================
      RENDER
   ======================================================= */
 
@@ -894,24 +1377,16 @@ ADAS软件工程师
       THEMES[state.theme] ||
       THEMES.blue;
 
+    /*
+     * 非自动模式：
+     * 保持 V1.2.5 原来的结构
+     */
     paper.className =
       `paper ${state.template} page-${state.pageMode}`;
 
-    /* =====================================================
-       主题色
-
-       同时设置：
-       --accent
-       --accent-soft
-
-       兼容旧 style.css
-
-       以及：
-       --resume-accent
-       --resume-accent-light
-
-       兼容新版 CSS
-    ===================================================== */
+    /*
+     * 主题色
+     */
 
     paper.style.setProperty(
       "--accent",
@@ -933,19 +1408,27 @@ ADAS软件工程师
       theme.light
     );
 
+    /*
+     * 字号
+     */
+
     paper.style.setProperty(
       "--resume-font-size",
       `${state.fontSize}px`
     );
+
+    /*
+     * 缩放
+     */
 
     paper.style.setProperty(
       "--resume-zoom",
       state.zoom
     );
 
-    /* =====================================================
-       主题按钮颜色
-    ===================================================== */
+    /*
+     * 主题按钮
+     */
 
     if (themes) {
 
@@ -969,8 +1452,17 @@ ADAS软件工程师
             "--theme-color",
             item.main
           );
+
+          button.classList.toggle(
+            "active",
+            name === state.theme
+          );
         });
     }
+
+    /*
+     * 正常渲染
+     */
 
     paper.innerHTML =
       renderHeader(data) +
@@ -980,10 +1472,62 @@ ADAS软件工程师
 
     applyFont();
 
-    paper.style.transform =
-      `scale(${state.zoom})`;
+    /*
+     * 自动模式：
+     * 等待浏览器完成 layout 后再分页。
+     */
+    if (
+      state.pageMode ===
+      "auto"
+    ) {
 
-    updateScaleSpace();
+      requestAnimationFrame(() => {
+
+        paginatePreview();
+
+        /*
+         * 重新应用字体
+         */
+        applyFont();
+
+        paper.style.transform =
+          `scale(${state.zoom})`;
+
+        updateScaleSpace();
+
+        /*
+         * 图片 / 字体在 iPad 上可能还需要一次 layout
+         */
+        requestAnimationFrame(() => {
+
+          /*
+           * 如果页面已经存在，
+           * 再重新计算一次分页。
+           *
+           * 这样可以处理证件照加载、
+           * 字体加载造成的高度变化。
+           */
+
+          paginatePreview();
+
+          applyFont();
+
+          paper.style.transform =
+            `scale(${state.zoom})`;
+
+          updateScaleSpace();
+
+        });
+
+      });
+
+    } else {
+
+      paper.style.transform =
+        `scale(${state.zoom})`;
+
+      updateScaleSpace();
+    }
   }
 
   /* =======================================================
@@ -1049,7 +1593,7 @@ ADAS软件工程师
   }
 
   /* =======================================================
-     NORMALIZE STATE
+     STATE NORMALIZE
   ======================================================= */
 
   function normalizeState() {
@@ -1059,7 +1603,6 @@ ADAS软件工程师
         state.template
       )
     ) {
-
       state.template =
         "tech";
     }
@@ -1067,7 +1610,6 @@ ADAS软件工程师
     if (
       !THEMES[state.theme]
     ) {
-
       state.theme =
         "blue";
     }
@@ -1081,7 +1623,6 @@ ADAS软件工程师
         state.pageMode
       )
     ) {
-
       state.pageMode =
         "auto";
     }
@@ -1095,7 +1636,6 @@ ADAS软件工程师
         state.font
       )
     ) {
-
       state.font =
         "pingfang";
     }
@@ -1108,11 +1648,10 @@ ADAS软件工程师
     if (
       !Number.isFinite(fs)
     ) {
-
       fs = 13;
     }
 
-    fs =
+    state.fontSize =
       Math.max(
         10,
         Math.min(
@@ -1120,9 +1659,6 @@ ADAS软件工程师
           fs
         )
       );
-
-    state.fontSize =
-      fs;
 
     let z =
       Number(
@@ -1132,11 +1668,10 @@ ADAS软件工程师
     if (
       !Number.isFinite(z)
     ) {
-
       z = 0.8;
     }
 
-    z =
+    state.zoom =
       Math.max(
         0.55,
         Math.min(
@@ -1144,9 +1679,6 @@ ADAS软件工程师
           z
         )
       );
-
-    state.zoom =
-      z;
 
     state.showPhoto =
       state.showPhoto !== false;
@@ -1181,6 +1713,7 @@ ADAS软件工程师
 
         saveState.textContent =
           "已自动保存";
+
       }
 
     } catch (error) {
@@ -1189,6 +1722,7 @@ ADAS软件工程师
         "ResumeFlow save error:",
         error
       );
+
     }
   }
 
@@ -1212,6 +1746,7 @@ ADAS软件工程师
 
         source.value =
           savedResume;
+
       }
 
       const savedState =
@@ -1236,7 +1771,9 @@ ADAS软件工程师
             ...DEFAULT_STATE,
             ...parsed
           };
+
         }
+
       }
 
     } catch (error) {
@@ -1249,6 +1786,7 @@ ADAS软件工程师
       state = {
         ...DEFAULT_STATE
       };
+
     }
   }
 
@@ -1271,7 +1809,9 @@ ADAS软件工程师
             button.dataset.t ===
               state.template
           );
+
         });
+
     }
 
     if (themes) {
@@ -1282,31 +1822,36 @@ ADAS软件工程师
         )
         .forEach(button => {
 
+          const name =
+            button.dataset.theme;
+
+          const item =
+            THEMES[name];
+
           button.classList.toggle(
             "active",
-            button.dataset.theme ===
+            name ===
               state.theme
           );
 
-          const t =
-            THEMES[
-              button.dataset.theme
-            ];
-
-          if (t) {
+          if (item) {
 
             button.style.setProperty(
               "--theme-color",
-              t.main
+              item.main
             );
+
           }
+
         });
+
     }
 
     if (pages) {
 
       pages.value =
         state.pageMode;
+
     }
 
     if (photoMode) {
@@ -1315,20 +1860,17 @@ ADAS软件工程师
         state.showPhoto
           ? "show"
           : "hide";
+
     }
 
     if (font) {
 
       font.value =
         state.font;
+
     }
 
     if (size) {
-
-      /*
-       * 强制把旧版 max=15
-       * 升级到 max=18
-       */
 
       size.min =
         "10";
@@ -1341,18 +1883,21 @@ ADAS软件工程师
 
       size.value =
         state.fontSize;
+
     }
 
     if (sizeVal) {
 
       sizeVal.textContent =
         state.fontSize;
+
     }
 
     if (zoom) {
 
       zoom.value =
         state.zoom;
+
     }
 
     if (zoomVal) {
@@ -1361,57 +1906,8 @@ ADAS软件工程师
         `${Math.round(
           state.zoom * 100
         )}%`;
+
     }
-  }
-
-  /* =======================================================
-     TEMPLATE PREVIEW
-  ======================================================= */
-
-  function createTemplatePreview() {
-
-    if (!templates) {
-      return;
-    }
-
-    templates
-      .querySelectorAll(
-        "[data-t]"
-      )
-      .forEach(button => {
-
-        if (
-          button.querySelector(
-            ".template-thumb"
-          )
-        ) {
-          return;
-        }
-
-        const type =
-          button.dataset.t;
-
-        const label =
-          button.textContent.trim();
-
-        button.innerHTML = `
-          <span
-            class="template-thumb template-thumb-${type}"
-          >
-            <span class="mini-name"></span>
-            <span class="mini-line"></span>
-            <span class="mini-section"></span>
-            <span class="mini-line"></span>
-            <span class="mini-line short"></span>
-            <span class="mini-section"></span>
-            <span class="mini-line"></span>
-          </span>
-
-          <span class="template-label">
-            ${escapeHTML(label)}
-          </span>
-        `;
-      });
   }
 
   /* =======================================================
@@ -1442,12 +1938,14 @@ ADAS软件工程师
 
       photoPreview.innerHTML =
         "<span>证件照</span>";
+
     }
 
     if (removePhotoBtn) {
 
       removePhotoBtn.disabled =
         !photo;
+
     }
   }
 
@@ -1502,16 +2000,16 @@ ADAS软件工程师
           alert(
             "照片保存失败，可能是图片过大。"
           );
+
         }
+
       };
 
-    reader.readAsDataURL(
-      file
-    );
+    reader.readAsDataURL(file);
   }
 
   /* =======================================================
-     FILE
+     RESUME FILE
   ======================================================= */
 
   function handleResumeFile(file) {
@@ -1531,11 +2029,13 @@ ADAS软件工程师
           source.value =
             event.target.result ||
             "";
+
         }
 
         save();
 
         render();
+
       };
 
     reader.readAsText(
@@ -1571,6 +2071,7 @@ ADAS软件工程师
         save();
 
         render();
+
       }
     );
   }
@@ -1602,12 +2103,13 @@ ADAS软件工程师
         save();
 
         render();
+
       }
     );
   }
 
   /* =======================================================
-     PAGE EVENT
+     PAGE MODE
   ======================================================= */
 
   if (pages) {
@@ -1622,6 +2124,7 @@ ADAS软件工程师
         save();
 
         render();
+
       }
     );
   }
@@ -1643,6 +2146,7 @@ ADAS软件工程师
         save();
 
         render();
+
       }
     );
   }
@@ -1663,6 +2167,7 @@ ADAS软件工程师
         save();
 
         render();
+
       }
     );
   }
@@ -1704,11 +2209,13 @@ ADAS软件工程师
 
           sizeVal.textContent =
             state.fontSize;
+
         }
 
         save();
 
         render();
+
       }
     );
   }
@@ -1734,17 +2241,19 @@ ADAS软件工程师
             `${Math.round(
               state.zoom * 100
             )}%`;
+
         }
 
         save();
 
         render();
+
       }
     );
   }
 
   /* =======================================================
-     SOURCE
+     SOURCE INPUT
   ======================================================= */
 
   if (source) {
@@ -1756,6 +2265,7 @@ ADAS软件工程师
         save();
 
         render();
+
       }
     );
   }
@@ -1773,6 +2283,7 @@ ADAS软件工程师
         save();
 
         render();
+
       }
     );
   }
@@ -1796,12 +2307,16 @@ ADAS软件工程师
         }
 
         if (source) {
-          source.value = "";
+
+          source.value =
+            "";
+
         }
 
         save();
 
         render();
+
       }
     );
   }
@@ -1820,11 +2335,13 @@ ADAS软件工程师
 
           source.value =
             DEMO_MD;
+
         }
 
         save();
 
         render();
+
       }
     );
   }
@@ -1843,6 +2360,7 @@ ADAS软件工程师
       () => {
 
         fileInput.click();
+
       }
     );
 
@@ -1854,12 +2372,11 @@ ADAS软件工程师
           fileInput.files &&
           fileInput.files[0];
 
-        handleResumeFile(
-          file
-        );
+        handleResumeFile(file);
 
         fileInput.value =
           "";
+
       }
     );
   }
@@ -1879,6 +2396,7 @@ ADAS软件工程师
         dropZone.classList.add(
           "drag"
         );
+
       }
     );
 
@@ -1889,6 +2407,7 @@ ADAS软件工程师
         dropZone.classList.remove(
           "drag"
         );
+
       }
     );
 
@@ -1906,9 +2425,8 @@ ADAS软件工程师
           event.dataTransfer.files &&
           event.dataTransfer.files[0];
 
-        handleResumeFile(
-          file
-        );
+        handleResumeFile(file);
+
       }
     );
   }
@@ -1927,6 +2445,7 @@ ADAS软件工程师
       () => {
 
         photoFile.click();
+
       }
     );
 
@@ -1942,6 +2461,7 @@ ADAS软件工程师
 
         photoFile.value =
           "";
+
       }
     );
   }
@@ -1963,26 +2483,20 @@ ADAS软件工程师
         updatePhotoUI();
 
         render();
+
       }
     );
   }
 
   /* =======================================================
-     PRINT CSS
-     
-     注意：
-     Safari 的网址、日期、页码属于浏览器自身
-     的 Headers & Footers，不属于网页内容。
-     
-     这里不再强制 10.5pt。
-     PDF 会使用当前选择的字号。
+     PRINT STYLE
   ======================================================= */
 
   function installPrintStyle() {
 
     const old =
       document.getElementById(
-        "resumeflow-print-v125"
+        "resumeflow-print-v130"
       );
 
     if (old) {
@@ -1995,48 +2509,76 @@ ADAS软件工程师
       );
 
     style.id =
-      "resumeflow-print-v125";
+      "resumeflow-print-v130";
 
     style.textContent = `
 
       @media print {
 
         @page {
+
           size: A4;
+
           margin: 0;
+
         }
 
         html,
         body {
+
           width: 210mm !important;
+
           margin: 0 !important;
+
           padding: 0 !important;
+
           background: #fff !important;
+
         }
 
         .top,
         .left,
         .right {
+
           display: none !important;
+
         }
 
         .main {
+
           display: block !important;
+
           width: 210mm !important;
+
           min-height: 0 !important;
+
           margin: 0 !important;
+
           padding: 0 !important;
+
         }
 
         .center {
+
           display: block !important;
+
           width: 210mm !important;
+
           padding: 0 !important;
+
           margin: 0 !important;
+
           overflow: visible !important;
+
         }
 
         #paper {
+
+          transform: none !important;
+
+        }
+
+        #paper:not(.preview-stack) {
 
           width: 210mm !important;
 
@@ -2053,8 +2595,62 @@ ADAS软件工程师
           box-shadow:
             none !important;
 
-          transform:
+          font-size:
+            var(--resume-font-size, 13px)
+            !important;
+
+          line-height:
+            1.55 !important;
+
+        }
+
+        #paper.preview-stack {
+
+          width: 210mm !important;
+
+          min-height: 0 !important;
+
+          height: auto !important;
+
+          margin: 0 !important;
+
+          padding: 0 !important;
+
+          background: #fff !important;
+
+          box-shadow: none !important;
+
+          transform: none !important;
+
+        }
+
+        #paper.preview-stack
+        > .resume-page {
+
+          width: 210mm !important;
+
+          height: 297mm !important;
+
+          min-height: 297mm !important;
+
+          max-height: 297mm !important;
+
+          margin: 0 !important;
+
+          padding:
+            13mm 15mm !important;
+
+          box-sizing:
+            border-box !important;
+
+          box-shadow:
             none !important;
+
+          overflow: hidden !important;
+
+          break-after: page;
+
+          page-break-after: always;
 
           font-size:
             var(--resume-font-size, 13px)
@@ -2062,35 +2658,23 @@ ADAS软件工程师
 
           line-height:
             1.55 !important;
+
         }
 
-        #paper.page-one {
+        #paper.preview-stack
+        > .resume-page:last-child {
 
-          min-height:
-            297mm !important;
+          break-after: auto;
 
-          font-size:
-            var(--resume-font-size, 13px)
-            !important;
+          page-break-after: auto;
 
-          padding:
-            11mm 15mm !important;
-        }
-
-        #paper.page-two {
-
-          min-height:
-            594mm !important;
-
-          font-size:
-            var(--resume-font-size, 13px)
-            !important;
         }
 
         #paper .section-title {
 
           break-after:
             avoid !important;
+
         }
 
         #paper .item-head {
@@ -2100,12 +2684,14 @@ ADAS软件工程师
 
           break-inside:
             avoid !important;
+
         }
 
         #paper li {
 
           break-inside:
             avoid !important;
+
         }
 
         #paper .resume-photo {
@@ -2115,7 +2701,9 @@ ADAS软件工程师
 
           -webkit-print-color-adjust:
             exact !important;
+
         }
+
       }
 
     `;
@@ -2135,16 +2723,7 @@ ADAS软件工程师
       "click",
       () => {
 
-        /*
-         * 导出前重新安装打印 CSS，
-         * 保证最新字号、主题色、模板状态生效。
-         */
-
         installPrintStyle();
-
-        /*
-         * 给浏览器一点时间应用样式。
-         */
 
         setTimeout(
           () => {
@@ -2154,6 +2733,7 @@ ADAS软件工程师
           },
           100
         );
+
       }
     );
   }
@@ -2167,6 +2747,7 @@ ADAS软件工程师
     () => {
 
       updateScaleSpace();
+
     }
   );
 
@@ -2174,14 +2755,11 @@ ADAS软件工程师
      INITIALIZE
   ======================================================= */
 
+  installPaginationStyle();
+
   load();
 
   normalizeState();
-
-  /*
-   * 强制升级旧版字号滑块：
-   * 10 ~ 18
-   */
 
   if (size) {
 
@@ -2193,11 +2771,10 @@ ADAS软件工程师
 
     size.step =
       "0.5";
+
   }
 
   syncControls();
-
-  createTemplatePreview();
 
   updatePhotoUI();
 
@@ -2219,15 +2796,16 @@ ADAS软件工程师
 
         navigator.serviceWorker
           .register(
-            "./sw.js?v=1.2.5"
+            "./sw.js?v=1.3.0"
           )
           .then(reg => {
 
             reg.update();
 
             console.log(
-              "ResumeFlow V1.2.5 Service Worker ready"
+              "ResumeFlow V1.3.0 Service Worker ready"
             );
+
           })
           .catch(error => {
 
@@ -2235,13 +2813,15 @@ ADAS软件工程师
               "ResumeFlow Service Worker:",
               error
             );
+
           });
+
       }
     );
   }
 
   console.log(
-    `ResumeFlow V${VERSION} ready`
+    "ResumeFlow V1.3.0 ready"
   );
 
 })();
