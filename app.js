@@ -1196,15 +1196,68 @@ function installPaginationStyle() {
 
     /* ==================================================
        打印
+       V1.3.5
+
+       目标：
+
+       1 个 resume-page
+       =
+       1 张 A4 纸
+
+       防止：
+
+       CSS A4
+       ↓
+       Safari 打印溢出
+       ↓
+       多出空白页
     ================================================== */
 
+    @page {
+
+      size: A4;
+
+      margin: 0;
+
+    }
+
+
     @media print {
+
+      html,
+      body {
+
+        width: 210mm !important;
+
+        min-width: 210mm !important;
+
+        height: auto !important;
+
+        min-height: 0 !important;
+
+        margin: 0 !important;
+
+        padding: 0 !important;
+
+        background: #fff !important;
+
+      }
+
+
+      /*
+       * 打印时禁止预览缩放
+       *
+       * 页面本身已经是 A4，
+       * 不需要再 scale。
+       */
 
       #paper.preview-stack {
 
         display: block !important;
 
         width: 210mm !important;
+
+        min-width: 210mm !important;
 
         height: auto !important;
 
@@ -1214,6 +1267,8 @@ function installPaginationStyle() {
 
         margin: 0 !important;
 
+        transform: none !important;
+
         background: #fff !important;
 
         box-shadow: none !important;
@@ -1221,8 +1276,15 @@ function installPaginationStyle() {
       }
 
 
+      /*
+       * 每一个 resume-page
+       * 就是一张完整 A4
+       */
+
       #paper.preview-stack
       > .resume-page {
+
+        display: block !important;
 
         width: 210mm !important;
 
@@ -1236,31 +1298,74 @@ function installPaginationStyle() {
 
         max-height: 297mm !important;
 
+        box-sizing: border-box !important;
+
         margin: 0 !important;
 
-        box-sizing: border-box !important;
+        padding: 52px 62px !important;
+
+        position: relative !important;
 
         overflow: hidden !important;
 
+        background: #fff !important;
+
         box-shadow: none !important;
 
-        break-after: page;
+        transform: none !important;
 
-        page-break-after: always;
+        /*
+         * 一个页面结束，
+         * 下一张物理纸开始
+         */
+
+        break-after: page !important;
+
+        page-break-after: always !important;
+
+        break-inside: avoid !important;
+
+        page-break-inside: avoid !important;
+
+      }
+
+
+      /*
+       * 不同模板的打印 padding
+       */
+
+      #paper.preview-stack
+      > .resume-page.minimal {
+
+        padding: 48px 58px !important;
 
       }
 
 
       #paper.preview-stack
+      > .resume-page.stripe {
+
+        padding-left: 58px !important;
+
+      }
+
+
+      /*
+       * 最后一页不能再强制分页
+       */
+
+      #paper.preview-stack
       > .resume-page:last-child {
 
-        break-after: auto;
+        break-after: auto !important;
 
-        page-break-after: auto;
+        page-break-after: auto !important;
 
       }
 
     }
+  
+
 
   `;
 
