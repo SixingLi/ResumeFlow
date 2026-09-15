@@ -1,5 +1,5 @@
 /* =========================================================
-   ResumeFlow V1.3.9
+   ResumeFlow V1.4.0
 
    核心：
    1. Markdown / TXT / JSON
@@ -9,7 +9,7 @@
    5. 自动A4分页
    6. 一页 / 两页 / 自动
    7. A4所见即所得预览
-   8. 独立打印 iframe PDF
+   8. 独立顶层打印页面 PDF
    9. localStorage
    10. PWA
 ========================================================= */
@@ -346,7 +346,7 @@ function getSectionType(title){
     normalizeHeading(title);
 
   for(
-    const [type, aliases]
+    const [type,aliases]
     of Object.entries(SECTION_ALIASES)
   ){
 
@@ -589,8 +589,7 @@ function parseMarkdown(text){
   if(!result.contact){
 
     result.contact =
-      beforeFirstSection
-        .join(" | ");
+      beforeFirstSection.join(" | ");
 
   }
 
@@ -657,65 +656,94 @@ function parseJSON(text){
   };
 
 
-  const mapping = {
+  const sectionMap = [
 
-    summary:"个人优势",
+    ["summary","个人优势"],
+    ["skills","核心技能"],
+    ["experience","工作经历"],
+    ["projects","项目经历"],
+    ["education","教育背景"],
+    ["certificates","证书"],
+    ["awards","获奖经历"]
 
-    skills:"核心技能",
-
-    experience:"工作经历",
-
-    projects:"项目经历",
-
-    education:"教育背景",
-
-    certificates:"证书",
-
-    awards:"获奖经历"
-
-  };
+  ];
 
 
-  for(
-    const [key,title]
-    of Object.entries(mapping)
-  ){
+  for(const [key,title] of sectionMap){
 
-    if(
-      obj[key] !== undefined
-    ){
+    if(!obj[key]){
+      continue;
+    }
 
-      const value =
-        obj[key];
 
-      const lines =
-        Array.isArray(value)
-          ? value
-          : [value];
+    const value =
+      Array.isArray(obj[key])
+        ? obj[key]
+        : [obj[key]];
 
-      result.sections.push({
 
-        type:key,
+    const section = {
 
-        title,
+      type:key,
 
-        blocks:[{
+      title,
+
+      blocks:[]
+
+    };
+
+
+    for(const item of value){
+
+      if(typeof item === "string"){
+
+        section.blocks.push({
 
           head:"",
 
-          lines:lines
-            .filter(Boolean)
-            .map(
-              x => stripMD(String(x))
-            ),
+          lines:[],
 
-          bullets:[]
+          bullets:[item]
 
-        }]
+        });
 
-      });
+        continue;
+
+      }
+
+
+      if(
+        item &&
+        typeof item === "object"
+      ){
+
+        section.blocks.push({
+
+          head:
+            item.title ||
+            item.name ||
+            item.公司 ||
+            item.项目 ||
+            "",
+
+          lines:
+            item.lines ||
+            item.description ||
+            [],
+
+          bullets:
+            item.bullets ||
+            item.内容 ||
+            []
+
+        });
+
+      }
 
     }
+
+
+    result.sections.push(section);
 
   }
 
@@ -726,45 +754,33 @@ function parseJSON(text){
 
 
 /* =========================================================
-   PARSE INPUT
+   INPUT
 ========================================================= */
 
 function parseInput(text){
 
-  const trimmed =
+  const value =
     clean(text);
 
-  if(!trimmed){
-
-    return {
-
-      name:"姓名",
-
-      title:"",
-
-      contact:"",
-
-      sections:[]
-
-    };
-
+  if(!value){
+    return null;
   }
 
 
   if(
-    trimmed.startsWith("{") ||
-    trimmed.startsWith("[")
+    value.startsWith("{") ||
+    value.startsWith("[")
   ){
 
     try{
 
-      return parseJSON(trimmed);
+      return parseJSON(value);
 
-    }catch(e){
+    }catch(error){
 
       console.warn(
-        "JSON解析失败，按Markdown处理",
-        e
+        "JSON解析失败，按Markdown处理。",
+        error
       );
 
     }
@@ -772,7 +788,7 @@ function parseInput(text){
   }
 
 
-  return parseMarkdown(trimmed);
+  return parseMarkdown(value);
 
 }
 
@@ -785,26 +801,18 @@ function blockHTML(block){
 
   let html = "";
 
-
   if(block.head){
 
     html +=
-      `<div class="item-head">${escapeHTML(block.head)}</div>`;
+      `<div class="block-head">${escapeHTML(block.head)}</div>`;
 
   }
 
 
-  for(
-    const line
-    of block.lines
-  ){
-
-    if(!line){
-      continue;
-    }
+  for(const line of block.lines || []){
 
     html +=
-      `<div class="paragraph">${escapeHTML(line)}</div>`;
+      `<div class="block-line">${escapeHTML(line)}</div>`;
 
   }
 
@@ -814,19 +822,16 @@ function blockHTML(block){
     block.bullets.length
   ){
 
-    html += "<ul>";
+    html += `<ul>`;
 
-    for(
-      const bullet
-      of block.bullets
-    ){
+    for(const bullet of block.bullets){
 
       html +=
         `<li>${escapeHTML(bullet)}</li>`;
 
     }
 
-    html += "</ul>";
+    html += `</ul>`;
 
   }
 
@@ -836,99 +841,114 @@ function blockHTML(block){
 }
 
 
-function sectionShell(title){
+/* =========================================================
+   SECTION
+========================================================= */
 
-  const section =
-    document.createElement("section");
+function sectionShell(section){
 
-  section.className =
-    "section";
+  return `
 
+    <section
+      class="resume-section section-${escapeHTML(section.type)}"
+    >
 
-  const titleEl =
-    document.createElement("div");
+      <h2>
+        ${escapeHTML(section.title)}
+      </h2>
 
-  titleEl.className =
-    "section-title";
+      <div class="section-content"></div>
 
-  titleEl.textContent =
-    title;
+    </section>
 
+  `;
 
-  const body =
-    document.createElement("div");
-
-  body.className =
-    "section-body";
-
-
-  section.appendChild(titleEl);
-  section.appendChild(body);
+}
 
 
-  return section;
+function addBlockToSection(section,block){
+
+  const content =
+    section.querySelector(
+      ".section-content"
+    );
+
+  if(!content){
+    return;
+  }
+
+  content.insertAdjacentHTML(
+    "beforeend",
+    `<div class="resume-block">
+       ${blockHTML(block)}
+     </div>`
+  );
 
 }
 
 
 /* =========================================================
-   HEADER HTML
+   HEADER
 ========================================================= */
 
-function headerHTML(data){
+function headerHTML(){
 
-  let photo = "";
+  const photo =
+    getPhoto();
 
 
-  if(
-    state.showPhoto &&
-    getPhoto()
-  ){
+  const photoHTML =
+    (
+      state.showPhoto &&
+      photo
+    )
 
-    photo = `
-      <div class="resume-photo">
-        <img src="${getPhoto()}">
-      </div>
-    `;
+      ? `
+        <img
+          class="resume-photo"
+          src="${photo}"
+          alt="证件照"
+        >
+      `
 
-  }
+      : "";
 
 
   return `
 
-    <div class="paper-header">
+    <header class="resume-header">
 
-      <div class="identity">
+      <div class="header-main">
 
-        <div class="name">
-          ${escapeHTML(data.name)}
+        <div class="resume-name">
+          ${escapeHTML(resumeData.name)}
         </div>
 
         ${
-          data.title
-          ? `
-            <div class="title">
-              ${escapeHTML(data.title)}
-            </div>
-          `
-          : ""
+          resumeData.title
+            ? `
+              <div class="resume-title">
+                ${escapeHTML(resumeData.title)}
+              </div>
+            `
+            : ""
         }
 
         ${
-          data.contact
-          ? `
-            <div class="contact">
-              ${escapeHTML(data.contact)}
-            </div>
-          `
-          : ""
+          resumeData.contact
+            ? `
+              <div class="resume-contact">
+                ${escapeHTML(resumeData.contact)}
+              </div>
+            `
+            : ""
         }
 
       </div>
 
-      ${photo}
+      ${photoHTML}
 
-    </div>
+    </header>
 
   `;
 
@@ -936,7 +956,7 @@ function headerHTML(data){
 
 
 /* =========================================================
-   CREATE PAGE
+   PAGE
 ========================================================= */
 
 function createPage(pageNumber){
@@ -947,48 +967,33 @@ function createPage(pageNumber){
   page.className =
     `resume-page ${state.template}`;
 
-  page.style.setProperty(
-    "--accent",
-    THEMES[state.theme].main
-  );
-
-  page.style.setProperty(
-    "--accent-soft",
-    THEMES[state.theme].light
-  );
-
-
   if(state.pageMode === "one"){
-
-    page.classList.add(
-      "page-one"
-    );
-
+    page.classList.add("page-one");
   }
-
 
   if(state.pageMode === "two"){
-
-    page.classList.add(
-      "page-two"
-    );
-
+    page.classList.add("page-two");
   }
 
 
-  const pageNumberEl =
-    document.createElement("div");
-
-  pageNumberEl.className =
-    "page-number";
-
-  pageNumberEl.textContent =
-    pageNumber;
+  const theme =
+    THEMES[state.theme] ||
+    THEMES.blue;
 
 
-  page.appendChild(
-    pageNumberEl
+  page.style.setProperty(
+    "--accent",
+    theme.main
   );
+
+  page.style.setProperty(
+    "--accent-light",
+    theme.light
+  );
+
+
+  page.dataset.page =
+    pageNumber;
 
 
   return page;
@@ -997,116 +1002,51 @@ function createPage(pageNumber){
 
 
 /* =========================================================
-   ADD HEADER
+   HEADER
 ========================================================= */
 
-function addHeader(page,data){
+function addHeader(page){
 
-  const wrapper =
-    document.createElement("div");
-
-  wrapper.innerHTML =
-    headerHTML(data);
-
-  page.insertBefore(
-    wrapper.firstElementChild,
-    page.firstChild
+  page.insertAdjacentHTML(
+    "beforeend",
+    headerHTML()
   );
 
 }
 
 
 /* =========================================================
-   OVERFLOW CHECK
+   OVERFLOW
 ========================================================= */
 
 function isOverflow(page){
 
   return (
     page.scrollHeight >
-    page.clientHeight + 2
+    page.clientHeight + 1
   );
 
 }
 
 
 /* =========================================================
-   ADD SECTION
+   SECTION
 ========================================================= */
 
 function addSection(page,section){
 
-  const el =
-    sectionShell(
-      section.title
-    );
-
-  const body =
-    el.querySelector(
-      ".section-body"
-    );
-
-
-  for(
-    const block
-    of section.blocks
-  ){
-
-    const holder =
-      document.createElement("div");
-
-    holder.innerHTML =
-      blockHTML(block);
-
-    while(
-      holder.firstElementChild
-    ){
-
-      body.appendChild(
-        holder.firstElementChild
-      );
-
-    }
-
-  }
-
-
-  page.appendChild(el);
-
-  return el;
-
-}
-
-
-/* =========================================================
-   SPLIT BLOCK
-========================================================= */
-
-function addBlockToSection(
-  sectionEl,
-  block
-){
-
-  const body =
-    sectionEl.querySelector(
-      ".section-body"
-    );
-
-  const holder =
+  const wrapper =
     document.createElement("div");
 
-  holder.innerHTML =
-    blockHTML(block);
+  wrapper.innerHTML =
+    sectionShell(section);
 
-  while(
-    holder.firstElementChild
-  ){
+  const element =
+    wrapper.firstElementChild;
 
-    body.appendChild(
-      holder.firstElementChild
-    );
+  page.appendChild(element);
 
-  }
+  return element;
 
 }
 
@@ -1118,9 +1058,7 @@ function addBlockToSection(
 function paginate(){
 
   if(!resumeData){
-
     return;
-
   }
 
 
@@ -1130,46 +1068,46 @@ function paginate(){
     "paper preview-stack";
 
 
-  const pagesOut = [];
-
-  let currentPage =
+  const firstPage =
     createPage(1);
 
-  paper.appendChild(
-    currentPage
-  );
 
-  pagesOut.push(
-    currentPage
-  );
+  addHeader(firstPage);
+
+  paper.appendChild(firstPage);
 
 
-  addHeader(
-    currentPage,
-    resumeData
-  );
+  const sections =
+    resumeData.sections || [];
 
 
   /*
-    一页模式：
-    不拆分页。
-  */
+   * 一页模式：
+   * 不分页，允许内容在页面内部自然显示。
+   */
 
-  if(
-    state.pageMode === "one"
-  ){
+  if(state.pageMode === "one"){
 
-    for(
-      const section
-      of resumeData.sections
-    ){
+    for(const sectionData of sections){
 
-      addSection(
-        currentPage,
-        section
-      );
+      const section =
+        addSection(
+          firstPage,
+          sectionData
+        );
+
+
+      for(const block of sectionData.blocks){
+
+        addBlockToSection(
+          section,
+          block
+        );
+
+      }
 
     }
+
 
     finishPagination();
 
@@ -1179,27 +1117,266 @@ function paginate(){
 
 
   /*
-    自动 / 两页模式
-  */
+   * 自动 / 两页模式
+   */
 
-  let pageIndex = 1;
+  let currentPage =
+    firstPage;
 
 
-  for(
-    const section
-    of resumeData.sections
-  ){
+  for(const sectionData of sections){
 
-    const candidate =
+    const section =
       addSection(
         currentPage,
+        sectionData
+      );
+
+
+    let sectionOverflow =
+      isOverflow(currentPage);
+
+
+    /*
+     * 整个 section 放不下：
+     * 删除 section，重新按 block 分页。
+     */
+
+    if(sectionOverflow){
+
+      currentPage.removeChild(
         section
       );
 
 
-    if(
-      !isOverflow(currentPage)
-    ){
+      currentPage =
+        createPage(
+          paper.children.length + 1
+        );
+
+      addHeader(currentPage);
+
+      paper.appendChild(
+        currentPage
+      );
+
+
+      const newSection =
+        addSection(
+          currentPage,
+          sectionData
+        );
+
+
+      /*
+       * block-by-block
+       */
+
+      for(const block of sectionData.blocks){
+
+        const before =
+          newSection.innerHTML;
+
+        addBlockToSection(
+          newSection,
+          block
+        );
+
+
+        if(isOverflow(currentPage)){
+
+          newSection.innerHTML =
+            before;
+
+
+          /*
+           * 如果单个 block 本身
+           * 就大于一页，则进一步拆 bullet。
+           */
+
+          const blockLines =
+            block.lines || [];
+
+          const blockBullets =
+            block.bullets || [];
+
+
+          const hasContent =
+            blockLines.length ||
+            blockBullets.length;
+
+
+          if(!hasContent){
+            continue;
+          }
+
+
+          let partial = {
+
+            head:block.head || "",
+
+            lines:[],
+
+            bullets:[]
+
+          };
+
+
+          const candidates = [
+
+            ...blockLines.map(
+              line => ({
+                type:"line",
+                value:line
+              })
+            ),
+
+            ...blockBullets.map(
+              bullet => ({
+                type:"bullet",
+                value:bullet
+              })
+            )
+
+          ];
+
+
+          for(const item of candidates){
+
+            if(item.type === "line"){
+
+              partial.lines.push(
+                item.value
+              );
+
+            }else{
+
+              partial.bullets.push(
+                item.value
+              );
+
+            }
+
+
+            newSection.innerHTML = "";
+
+
+            addBlockToSection(
+              newSection,
+              partial
+            );
+
+
+            if(isOverflow(currentPage)){
+
+              /*
+               * 删除最后一个元素
+               */
+
+              partial.lines =
+                partial.lines.filter(
+                  x => x !== item.value
+                );
+
+              partial.bullets =
+                partial.bullets.filter(
+                  x => x !== item.value
+                );
+
+
+              newSection.innerHTML = "";
+
+
+              if(
+                partial.lines.length ||
+                partial.bullets.length
+              ){
+
+                addBlockToSection(
+                  newSection,
+                  partial
+                );
+
+              }
+
+
+              /*
+               * 创建下一页
+               */
+
+              currentPage =
+                createPage(
+                  paper.children.length + 1
+                );
+
+              addHeader(
+                currentPage
+              );
+
+              paper.appendChild(
+                currentPage
+              );
+
+
+              const nextSection =
+                addSection(
+                  currentPage,
+                  sectionData
+                );
+
+
+              partial = {
+
+                head:block.head || "",
+
+                lines:[],
+                bullets:[]
+
+              };
+
+
+              if(item.type === "line"){
+
+                partial.lines.push(
+                  item.value
+                );
+
+              }else{
+
+                partial.bullets.push(
+                  item.value
+                );
+
+              }
+
+
+              nextSection.innerHTML = "";
+
+              addBlockToSection(
+                nextSection,
+                partial
+              );
+
+
+              /*
+               * 后续 item 使用新的 section
+               */
+
+              newSection.innerHTML = "";
+
+              /*
+               * 这里结束当前 block 的细粒度拆分。
+               * 剩余内容继续以 block 形式加入下一页。
+               */
+
+            }
+
+          }
+
+        }
+
+      }
+
 
       continue;
 
@@ -1207,267 +1384,67 @@ function paginate(){
 
 
     /*
-      整个section放不下：
-      移除，然后从block级别重新分页。
-    */
+     * 当前 section 正常放入。
+     */
 
-    currentPage.removeChild(
-      candidate
-    );
-
-
-    let sectionPage =
-      currentPage;
-
-    let sectionEl =
-      sectionShell(
-        section.title
-      );
-
-    sectionPage.appendChild(
-      sectionEl
-    );
-
-
-    for(
-      const block
-      of section.blocks
-    ){
-
-      const before =
-        sectionEl
-          .querySelector(
-            ".section-body"
-          )
-          .innerHTML;
+    for(const block of sectionData.blocks){
 
       addBlockToSection(
-        sectionEl,
+        section,
         block
       );
 
 
-      if(
-        !isOverflow(sectionPage)
-      ){
+      if(isOverflow(currentPage)){
 
-        continue;
+        /*
+         * 删除刚刚添加的 block
+         */
 
-      }
-
-
-      /*
-        当前block放不下。
-      */
-
-      sectionEl
-        .querySelector(
-          ".section-body"
-        )
-        .innerHTML =
-        before;
-
-
-      /*
-        如果当前section已经有内容，
-        先开启新页。
-      */
-
-      const body =
-        sectionEl
-          .querySelector(
-            ".section-body"
+        const blocks =
+          section.querySelectorAll(
+            ".resume-block"
           );
 
 
-      if(body.children.length){
+        const last =
+          blocks[blocks.length - 1];
 
-        pageIndex++;
+
+        if(last){
+          last.remove();
+        }
+
+
+        /*
+         * 创建下一页
+         */
 
         currentPage =
           createPage(
-            pageIndex
+            paper.children.length + 1
           );
+
+        addHeader(
+          currentPage
+        );
 
         paper.appendChild(
           currentPage
         );
 
-        pagesOut.push(
-          currentPage
-        );
 
-
-        sectionEl =
-          sectionShell(
-            section.title
+        const nextSection =
+          addSection(
+            currentPage,
+            sectionData
           );
 
-        currentPage.appendChild(
-          sectionEl
+
+        addBlockToSection(
+          nextSection,
+          block
         );
-
-      }
-
-
-      /*
-        再尝试放block。
-      */
-
-      addBlockToSection(
-        sectionEl,
-        block
-      );
-
-
-      /*
-        如果单个block依旧放不下，
-        对bullet进行拆分。
-      */
-
-      if(
-        isOverflow(currentPage)
-      ){
-
-        sectionEl
-          .querySelector(
-            ".section-body"
-          )
-          .innerHTML = "";
-
-
-        const head =
-          block.head || "";
-
-
-        if(head){
-
-          const headEl =
-            document.createElement(
-              "div"
-            );
-
-          headEl.className =
-            "item-head";
-
-          headEl.textContent =
-            head;
-
-          sectionEl
-            .querySelector(
-              ".section-body"
-            )
-            .appendChild(
-              headEl
-            );
-
-        }
-
-
-        for(
-          const bullet
-          of block.bullets
-        ){
-
-          let list =
-            sectionEl
-              .querySelector(
-                ".section-body ul"
-              );
-
-
-          if(!list){
-
-            list =
-              document.createElement(
-                "ul"
-              );
-
-            sectionEl
-              .querySelector(
-                ".section-body"
-              )
-              .appendChild(
-                list
-              );
-
-          }
-
-
-          const li =
-            document.createElement(
-              "li"
-            );
-
-          li.textContent =
-            bullet;
-
-          list.appendChild(li);
-
-
-          if(
-            isOverflow(
-              currentPage
-            )
-          ){
-
-            list.removeChild(li);
-
-            pageIndex++;
-
-            currentPage =
-              createPage(
-                pageIndex
-              );
-
-            paper.appendChild(
-              currentPage
-            );
-
-            pagesOut.push(
-              currentPage
-            );
-
-
-            sectionEl =
-              sectionShell(
-                section.title
-              );
-
-            currentPage.appendChild(
-              sectionEl
-            );
-
-
-            const newList =
-              document.createElement(
-                "ul"
-              );
-
-            sectionEl
-              .querySelector(
-                ".section-body"
-              )
-              .appendChild(
-                newList
-              );
-
-
-            const newLi =
-              document.createElement(
-                "li"
-              );
-
-            newLi.textContent =
-              bullet;
-
-            newList.appendChild(
-              newLi
-            );
-
-          }
-
-        }
 
       }
 
@@ -1477,57 +1454,20 @@ function paginate(){
 
 
   /*
-    两页模式最多保留两页。
-  */
+   * 两页模式限制最多两页。
+   */
 
-  if(
-    state.pageMode === "two" &&
-    pagesOut.length > 2
-  ){
+  if(state.pageMode === "two"){
 
     while(
-      pagesOut.length > 2
+      paper.children.length > 2
     ){
 
-      const last =
-        pagesOut.pop();
-
-      last.remove();
+      paper.lastElementChild.remove();
 
     }
 
   }
-
-
-  /*
-    更新页码。
-  */
-
-  const finalPages =
-    Array.from(
-      paper.querySelectorAll(
-        ".resume-page"
-      )
-    );
-
-
-  finalPages.forEach(
-    (page,index) => {
-
-      const number =
-        page.querySelector(
-          ".page-number"
-        );
-
-      if(number){
-
-        number.textContent =
-          `${index + 1} / ${finalPages.length}`;
-
-      }
-
-    }
-  );
 
 
   finishPagination();
@@ -1541,7 +1481,49 @@ function paginate(){
 
 function finishPagination(){
 
+  const pageList =
+    Array.from(
+      paper.querySelectorAll(
+        ".resume-page"
+      )
+    );
+
+
+  pageList.forEach(
+    (page,index) => {
+
+      page.dataset.page =
+        index + 1;
+
+      page.querySelectorAll(
+        ".page-number"
+      ).forEach(
+        node => node.remove()
+      );
+
+
+      const number =
+        document.createElement("div");
+
+      number.className =
+        "page-number";
+
+
+      number.textContent =
+        `${index + 1} / ${pageList.length}`;
+
+
+      page.appendChild(number);
+
+    }
+  );
+
+
   applyFont();
+
+  applyTheme();
+
+  applyTemplate();
 
   updateScale();
 
@@ -1556,31 +1538,75 @@ function finishPagination(){
 
 function applyFont(){
 
-  const fontMap = {
+  if(!paper){
+    return;
+  }
 
-    pingfang:
-      '-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif',
 
-    yahei:
-      '"Microsoft YaHei","PingFang SC",sans-serif',
+  let family =
+    "Arial, sans-serif";
 
-    system:
-      'system-ui,-apple-system,BlinkMacSystemFont,sans-serif'
 
-  };
+  switch(state.font){
+
+    case "pingfang":
+
+      family =
+        `"PingFang SC",
+         "PingFang TC",
+         "Microsoft YaHei",
+         sans-serif`;
+
+      break;
+
+
+    case "yahei":
+
+      family =
+        `"Microsoft YaHei",
+         "PingFang SC",
+         sans-serif`;
+
+      break;
+
+
+    case "song":
+
+      family =
+        `"Songti SC",
+         "SimSun",
+         serif`;
+
+      break;
+
+
+    case "mono":
+
+      family =
+        `"SFMono-Regular",
+         "Menlo",
+         "Consolas",
+         monospace`;
+
+      break;
+
+  }
 
 
   paper.style.fontFamily =
-    fontMap[state.font]
-    || fontMap.pingfang;
+    family;
 
 
   paper.style.fontSize =
     `${state.fontSize}px`;
 
 
-  sizeVal.textContent =
-    state.fontSize;
+  if(sizeVal){
+
+    sizeVal.textContent =
+      `${state.fontSize}`;
+
+  }
 
 }
 
@@ -1591,16 +1617,16 @@ function applyFont(){
 
 function updateScale(){
 
-  const scale =
-    Number(state.zoom) || .8;
-
-
   paper.style.transform =
-    `scale(${scale})`;
+    `scale(${state.zoom})`;
 
 
-  zoomVal.textContent =
-    `${Math.round(scale * 100)}%`;
+  if(zoomVal){
+
+    zoomVal.textContent =
+      `${Math.round(state.zoom * 100)}%`;
+
+  }
 
 }
 
@@ -1612,52 +1638,45 @@ function updateScale(){
 function applyTheme(){
 
   const theme =
-    THEMES[state.theme]
-    || THEMES.blue;
+    THEMES[state.theme] ||
+    THEMES.blue;
 
 
   document.documentElement
-    .style.setProperty(
+    .style
+    .setProperty(
       "--accent",
       theme.main
     );
 
 
   document.documentElement
-    .style.setProperty(
-      "--accent-soft",
+    .style
+    .setProperty(
+      "--accent-light",
       theme.light
     );
 
 
-  document.querySelectorAll(
-    ".theme"
-  ).forEach(btn => {
+  paper
+    .querySelectorAll(
+      ".resume-page"
+    )
+    .forEach(
+      page => {
 
-    btn.classList.toggle(
-      "active",
-      btn.dataset.theme
-      === state.theme
+        page.style.setProperty(
+          "--accent",
+          theme.main
+        );
+
+        page.style.setProperty(
+          "--accent-light",
+          theme.light
+        );
+
+      }
     );
-
-  });
-
-
-  document.querySelectorAll(
-    ".resume-page"
-  ).forEach(page => {
-
-    page.style.setProperty(
-      "--accent",
-      theme.main
-    );
-
-    page.style.setProperty(
-      "--accent-soft",
-      theme.light
-    );
-
-  });
 
 }
 
@@ -1668,17 +1687,31 @@ function applyTheme(){
 
 function applyTemplate(){
 
-  document.querySelectorAll(
-    ".template button"
-  ).forEach(btn => {
+  paper
+    .querySelectorAll(
+      ".resume-page"
+    )
+    .forEach(
+      page => {
 
-    btn.classList.toggle(
-      "active",
-      btn.dataset.t
-      === state.template
+        page.classList.remove(
+          "tech",
+          "blueprint",
+          "minimal",
+          "terminal",
+          "gray",
+          "stripe",
+          "business",
+          "photo"
+        );
+
+
+        page.classList.add(
+          state.template
+        );
+
+      }
     );
-
-  });
 
 }
 
@@ -1689,14 +1722,32 @@ function applyTemplate(){
 
 function getPhoto(){
 
-  return localStorage.getItem(
-    STORAGE.photo
-  ) || "";
+  try{
+
+    return localStorage.getItem(
+      STORAGE.photo
+    ) || "";
+
+  }catch(error){
+
+    console.warn(
+      "读取证件照失败",
+      error
+    );
+
+    return "";
+
+  }
 
 }
 
 
 function renderPhotoPreview(){
+
+  if(!photoPreview){
+    return;
+  }
+
 
   const photo =
     getPhoto();
@@ -1704,19 +1755,36 @@ function renderPhotoPreview(){
 
   if(photo){
 
-    photoPreview.innerHTML =
-      `<img src="${photo}" alt="">`;
+    photoPreview.src =
+      photo;
 
-    removePhotoBtn.disabled =
-      false;
+    photoPreview.style.display =
+      "block";
+
+
+    if(removePhotoBtn){
+
+      removePhotoBtn.disabled =
+        false;
+
+    }
 
   }else{
 
-    photoPreview.innerHTML =
-      "<span>证件照</span>";
+    photoPreview.removeAttribute(
+      "src"
+    );
 
-    removePhotoBtn.disabled =
-      true;
+    photoPreview.style.display =
+      "none";
+
+
+    if(removePhotoBtn){
+
+      removePhotoBtn.disabled =
+        true;
+
+    }
 
   }
 
@@ -1736,26 +1804,25 @@ function save(){
       source.value
     );
 
+
     localStorage.setItem(
       STORAGE.state,
       JSON.stringify(state)
     );
 
-    saveState.textContent =
-      "已保存";
 
-    setTimeout(() => {
+    if(saveState){
 
       saveState.textContent =
-        "本地自动保存";
+        "已保存";
 
-    },1200);
+    }
 
-  }catch(e){
+  }catch(error){
 
     console.warn(
       "保存失败",
-      e
+      error
     );
 
   }
@@ -1771,91 +1838,130 @@ function load(){
 
   try{
 
-    const text =
-      localStorage.getItem(
-        STORAGE.resume
-      );
-
-    if(text){
-
-      source.value =
-        text;
-
-    }
-
-
-    const saved =
+    const savedState =
       localStorage.getItem(
         STORAGE.state
       );
 
 
-    if(saved){
+    if(savedState){
 
       state = {
 
         ...DEFAULT_STATE,
 
-        ...JSON.parse(saved)
+        ...JSON.parse(
+          savedState
+        )
 
       };
 
     }
 
-  }catch(e){
+
+    const savedResume =
+      localStorage.getItem(
+        STORAGE.resume
+      );
+
+
+    if(savedResume){
+
+      source.value =
+        savedResume;
+
+    }else{
+
+      source.value =
+        DEMO_MD;
+
+    }
+
+
+    syncControls();
+
+    renderPhotoPreview();
+
+    render();
+
+  }catch(error){
 
     console.warn(
-      "读取本地状态失败",
-      e
+      "加载失败",
+      error
     );
+
+
+    source.value =
+      DEMO_MD;
+
+    render();
+
+  }
+
+}
+
+
+/* =========================================================
+   CONTROLS
+========================================================= */
+
+function syncControls(){
+
+  if(templates){
+
+    templates.value =
+      state.template;
 
   }
 
 
-  pages.value =
-    state.pageMode;
+  if(themes){
 
-  photoMode.value =
-    state.showPhoto
-      ? "show"
-      : "hide";
+    themes.value =
+      state.theme;
 
-  font.value =
-    state.font;
-
-  size.value =
-    state.fontSize;
-
-  zoom.value =
-    state.zoom;
+  }
 
 
-  applyTemplate();
+  if(pages){
 
-  applyTheme();
+    pages.value =
+      state.pageMode;
 
-  renderPhotoPreview();
+  }
 
 
-  if(source.value.trim()){
+  if(photoMode){
 
-    try{
+    photoMode.value =
+      state.showPhoto
+        ? "show"
+        : "hide";
 
-      resumeData =
-        parseInput(
-          source.value
-        );
+  }
 
-      paginate();
 
-    }catch(e){
+  if(font){
 
-      console.warn(
-        "自动恢复简历失败",
-        e
-      );
+    font.value =
+      state.font;
 
-    }
+  }
+
+
+  if(size){
+
+    size.value =
+      state.fontSize;
+
+  }
+
+
+  if(zoom){
+
+    zoom.value =
+      state.zoom;
 
   }
 
@@ -1868,12 +1974,38 @@ function load(){
 
 function render(){
 
-  resumeData =
-    parseInput(
-      source.value
+  try{
+
+    resumeData =
+      parseInput(
+        source.value
+      );
+
+
+    if(!resumeData){
+
+      paper.innerHTML = "";
+
+      return;
+
+    }
+
+
+    paginate();
+
+  }catch(error){
+
+    console.error(
+      "简历渲染失败",
+      error
     );
 
-  paginate();
+
+    alert(
+      "简历渲染失败，请检查输入内容。"
+    );
+
+  }
 
 }
 
@@ -1897,10 +2029,22 @@ function readFile(file){
     event => {
 
       source.value =
-        event.target.result
-        || "";
+        event.target.result || "";
+
 
       render();
+
+      save();
+
+    };
+
+
+  reader.onerror =
+    () => {
+
+      alert(
+        "文件读取失败。"
+      );
 
     };
 
@@ -1925,11 +2069,9 @@ function readPhoto(file){
 
 
   if(
-    ![
-      "image/jpeg",
-      "image/png",
-      "image/webp"
-    ].includes(file.type)
+    !file.type.startsWith(
+      "image/"
+    )
   ){
 
     alert(
@@ -1955,18 +2097,15 @@ function readPhoto(file){
           event.target.result
         );
 
+
         renderPhotoPreview();
 
-        if(source.value.trim()){
+        render();
 
-          render();
-
-        }
-
-      }catch(e){
+      }catch(error){
 
         alert(
-          "照片保存失败，可能是图片过大。"
+          "证件照保存失败，图片可能过大。"
         );
 
       }
@@ -1982,1083 +2121,368 @@ function readPhoto(file){
 
 
 /* =========================================================
-   PRINT HELPERS
+   PRINT
+   V1.4.0
 ========================================================= */
 
-
 /*
-  当前页面的字体设置。
-*/
+ * 这里是本版本最重要的修改。
+ *
+ * 不再：
+ *
+ * iframe
+ * hidden iframe
+ * iframe.contentWindow.print()
+ *
+ * 而是：
+ *
+ * 用户点击
+ *    ↓
+ * window.open() 同步创建顶层窗口
+ *    ↓
+ * 写入已经分页完成的简历
+ *    ↓
+ * 独立打印
+ *
+ * 这样可以避免 Chrome Popup/iframe 打印限制，
+ * 同时避免 Safari 把主页面的 A4布局参与打印分页。
+ */
+
+
+/* =========================================================
+   PRINT FONT
+========================================================= */
 
 function getPrintFontFamily(){
 
-  const fontMap = {
+  switch(state.font){
 
-    pingfang:
-      '-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif',
+    case "pingfang":
 
-    yahei:
-      '"Microsoft YaHei","PingFang SC",sans-serif',
+      return `
+        "PingFang SC",
+        "PingFang TC",
+        "Microsoft YaHei",
+        sans-serif
+      `;
 
-    system:
-      'system-ui,-apple-system,BlinkMacSystemFont,sans-serif'
+    case "yahei":
 
-  };
+      return `
+        "Microsoft YaHei",
+        "PingFang SC",
+        sans-serif
+      `;
 
+    case "song":
 
-  return (
-    fontMap[state.font]
-    || fontMap.pingfang
-  );
+      return `
+        "Songti SC",
+        "SimSun",
+        serif
+      `;
+
+    case "mono":
+
+      return `
+        "SFMono-Regular",
+        "Menlo",
+        "Consolas",
+        monospace
+      `;
+
+    default:
+
+      return `
+        Arial,
+        sans-serif
+      `;
+
+  }
 
 }
 
 
-/*
-  从当前页面 stylesheet 中提取普通屏幕 CSS。
-
-  这里故意不复制 @media print，
-  避免当前 style.css 中的旧打印规则
-  再次干扰 iframe。
-*/
+/* =========================================================
+   GET SCREEN STYLES
+========================================================= */
 
 function getScreenStyles(){
 
-  let css = "";
-
-
-  const styles =
+  const links =
     Array.from(
       document.querySelectorAll(
-        "style"
+        'link[rel="stylesheet"]'
       )
     );
 
 
-  styles.forEach(
-    style => {
+  const styles =
+    links.map(
+      link => {
 
-      const text =
-        style.textContent || "";
+        const href =
+          link.getAttribute(
+            "href"
+          );
 
-
-      /*
-        去除所有 @media print 块。
-
-        使用简单状态机处理嵌套大括号。
-      */
-
-      css +=
-        removePrintMedia(
-          text
-        );
-
-    }
-  );
-
-
-  /*
-    外部 stylesheet 的内容不能直接从
-    cross-origin stylesheet 读取。
-
-    ResumeFlow 当前 style.css 为同源文件，
-    因此尝试读取 document.styleSheets。
-  */
-
-  Array.from(
-    document.styleSheets
-  ).forEach(
-    sheet => {
-
-      try{
-
-        if(
-          !sheet.cssRules
-        ){
-
-          return;
-
+        if(!href){
+          return "";
         }
 
-
-        Array.from(
-          sheet.cssRules
-        ).forEach(
-          rule => {
-
-            /*
-              跳过 print media。
-            */
-
-            if(
-              rule.type ===
-              CSSRule.MEDIA_RULE &&
-              /print/i.test(
-                rule.conditionText || ""
-              )
-            ){
-
-              return;
-
-            }
-
-
-            css +=
-              rule.cssText +
-              "\n";
-
-          }
-        );
-
-      }catch(e){
-
-        /*
-          跨域 stylesheet 无法读取时，
-          不影响打印。
-        */
-
-        console.warn(
-          "无法读取stylesheet：",
-          e
-        );
-
-      }
-
-    }
-  );
-
-
-  return css;
-
-}
-
-
-/*
-  删除 CSS 中的 @media print 块。
-*/
-
-function removePrintMedia(css){
-
-  let result = "";
-  let i = 0;
-
-
-  while(i < css.length){
-
-    const match =
-      css.slice(i).match(
-        /@media\s+print\s*\{/i
-      );
-
-
-    if(!match){
-
-      result +=
-        css.slice(i);
-
-      break;
-
-    }
-
-
-    const start =
-      i + match.index;
-
-
-    result +=
-      css.slice(
-        i,
-        start
-      );
-
-
-    const braceStart =
-      css.indexOf(
-        "{",
-        start
-      );
-
-
-    if(braceStart < 0){
-
-      break;
-
-    }
-
-
-    let depth = 1;
-    let j =
-      braceStart + 1;
-
-
-    while(
-      j < css.length &&
-      depth > 0
-    ){
-
-      if(css[j] === "{"){
-
-        depth++;
-
-      }else if(css[j] === "}"){
-
-        depth--;
-
-      }
-
-      j++;
-
-    }
-
-
-    i = j;
-
-  }
-
-
-  return result;
-
-}
-
-
-/*
-  创建独立打印 iframe。
-*/
-
-function createPrintFrame(){
-
-  const iframe =
-    document.createElement(
-      "iframe"
-    );
-
-
-  iframe.setAttribute(
-    "aria-hidden",
-    "true"
-  );
-
-
-  iframe.style.position =
-    "fixed";
-
-  iframe.style.left =
-    "-10000px";
-
-  iframe.style.top =
-    "0";
-
-  iframe.style.width =
-    "1px";
-
-  iframe.style.height =
-    "1px";
-
-  iframe.style.border =
-    "0";
-
-  iframe.style.opacity =
-    "0";
-
-  iframe.style.pointerEvents =
-    "none";
-
-
-  iframe.src =
-    "about:blank";
-
-
-  document.body.appendChild(
-    iframe
-  );
-
-
-  return iframe;
-
-}
-
-
-/*
-  等待图片加载。
-*/
-
-function waitForPrintImages(
-  doc
-){
-
-  const images =
-    Array.from(
-      doc.images || []
-    );
-
-
-  if(!images.length){
-
-    return Promise.resolve();
-
-  }
-
-
-  return Promise.all(
-    images.map(
-      image => {
-
-        if(image.complete){
-
-          return Promise.resolve();
-
-        }
-
-
-        return new Promise(
-          resolve => {
-
-            image.addEventListener(
-              "load",
-              resolve,
-              {
-                once:true
-              }
-            );
-
-            image.addEventListener(
-              "error",
-              resolve,
-              {
-                once:true
-              }
-            );
-
-          }
-        );
+        return `
+          <link
+            rel="stylesheet"
+            href="${escapeHTML(href)}"
+          >
+        `;
 
       }
     )
-  );
+    .join("\n");
+
+
+  return styles;
 
 }
 
 
-/*
-  等待字体加载。
-*/
+/* =========================================================
+   PRINT CSS
+========================================================= */
 
-function waitForPrintFonts(
-  doc
-){
+function getPrintCSS(){
 
-  if(
-    doc.fonts &&
-    doc.fonts.ready
-  ){
-
-    return doc.fonts.ready.catch(
-      () => {}
-    );
-
-  }
+  const fontFamily =
+    getPrintFontFamily();
 
 
-  return Promise.resolve();
+  return `
 
-}
+    html,
+    body{
 
+      margin:0 !important;
+      padding:0 !important;
 
-/*
-  准备 iframe。
+      width:210mm !important;
 
-  关键点：
+      background:#fff !important;
 
-  1. 不复制 .resume-page class
-  2. 不复制 @media print
-  3. 不复制 #paper
-  4. 不复制 preview-stack
-  5. 每个页面改名为 print-page
-*/
-
-async function preparePrintFrame(
-  iframe
-){
-
-  const printWindow =
-    iframe.contentWindow;
-
-  const printDocument =
-    printWindow.document;
-
-
-  /*
-    创建基础 HTML。
-  */
-
-  printDocument.open();
-
-  printDocument.write(`
-    <!DOCTYPE html>
-
-    <html>
-
-      <head>
-
-        <meta charset="UTF-8">
-
-        <meta
-          name="viewport"
-          content="width=device-width,initial-scale=1"
-        >
-
-        <title>ResumeFlow</title>
-
-      </head>
-
-      <body>
-
-        <div id="resume-print-root"></div>
-
-      </body>
-
-    </html>
-  `);
-
-  printDocument.close();
-
-
-  /*
-    只注入普通屏幕 CSS。
-  */
-
-  const screenStyle =
-    printDocument.createElement(
-      "style"
-    );
-
-
-  screenStyle.textContent =
-    getScreenStyles();
-
-
-  printDocument.head.appendChild(
-    screenStyle
-  );
-
-
-  /*
-    独立打印 CSS。
-  */
-
-  const printStyle =
-    printDocument.createElement(
-      "style"
-    );
-
-
-  printStyle.textContent = `
-
-    /*
-      ========================================
-      ResumeFlow V1.3.9 PRINT ENGINE
-      ========================================
-    */
-
-    @page {
-
-      size: A4 portrait;
-
-      margin: 0;
+      font-family:${fontFamily};
 
     }
 
 
-    html {
+    @page{
 
-      width: 210mm;
+      size:A4 portrait;
 
-      margin: 0;
-
-      padding: 0;
-
-      background: #fff;
+      margin:0;
 
     }
 
 
-    body {
+    *{
 
-      width: 210mm;
+      box-sizing:border-box;
 
-      margin: 0;
+    }
 
-      padding: 0;
 
-      background: #fff;
+    body{
 
-      overflow: visible;
+      width:210mm;
 
-      font-family:
-        ${getPrintFontFamily()};
-
-      font-size:
-        ${Number(state.fontSize) || 13}px;
-
-      -webkit-print-color-adjust: exact;
-
-      print-color-adjust: exact;
+      background:#fff;
 
     }
 
 
     /*
-      打印根节点。
+     * 一个 print-page 就是一张纸。
+     *
+     * 高度故意使用 296mm，
+     * 不使用 297mm。
+     *
+     * 这样可以给 Safari/WebKit 留出极小的
+     * 浮点计算余量，避免：
+     *
+     * 297mm + page break
+     *
+     * 被计算成下一页。
+     */
 
-      不允许 flex / grid / gap
-      影响物理分页。
-    */
+    .print-page{
 
-    #resume-print-root {
+      position:relative;
 
-      width: 210mm;
+      width:210mm !important;
 
-      margin: 0;
+      height:296mm !important;
 
-      padding: 0;
+      min-width:210mm !important;
 
-      display: block;
+      max-width:210mm !important;
+
+      min-height:296mm !important;
+
+      max-height:296mm !important;
+
+      margin:0 !important;
+
+      padding:0 !important;
+
+      overflow:hidden !important;
+
+      background:#fff !important;
+
+      box-shadow:none !important;
+
+      transform:none !important;
+
+      break-inside:avoid !important;
+
+      page-break-inside:avoid !important;
+
+      break-after:page !important;
+
+      page-break-after:always !important;
+
+    }
+
+
+    .print-page:last-child{
+
+      break-after:auto !important;
+
+      page-break-after:auto !important;
 
     }
 
 
     /*
-      一张逻辑简历页
-      = 一张物理 A4。
-    */
+     * 原来的 resume-page 是 794 × 1123px。
+     *
+     * 打印时我们让内部内容按照 A4 比例缩放到
+     * 296mm 的实际高度。
+     */
 
-    .print-page {
+    .print-inner{
 
-      width: 210mm !important;
+      position:absolute;
 
-      height: 297mm !important;
+      left:0;
 
-      min-width: 210mm !important;
+      top:0;
 
-      max-width: 210mm !important;
+      width:210mm;
 
-      min-height: 297mm !important;
+      height:297mm;
 
-      max-height: 297mm !important;
+      transform:
+        scale(0.996633);
 
-      margin: 0 !important;
+      transform-origin:
+        top left;
 
-      padding: 52px 62px;
+      overflow:hidden;
 
-      box-sizing: border-box;
-
-      position: relative;
-
-      display: block;
-
-      overflow: hidden;
-
-      background: #fff;
-
-      box-shadow: none !important;
-
-      transform: none !important;
-
-      zoom: 1 !important;
-
-      flex: none !important;
-
-      float: none !important;
-
-      break-inside: avoid;
-
-      page-break-inside: avoid;
+      background:#fff;
 
     }
 
 
     /*
-      所有非最后页面结束后分页。
+     * 原有模板样式继续负责具体排版。
+     * 这里仅取消屏幕阴影、外部间距和缩放。
+     */
 
-      注意：
-      使用 break-after，
-      不使用 break-before。
-    */
+    .print-inner .resume-page{
 
-    .print-page:not(:last-child) {
+      width:210mm !important;
 
-      break-after: page;
+      height:297mm !important;
 
-      page-break-after: always;
+      min-width:210mm !important;
+
+      max-width:210mm !important;
+
+      min-height:297mm !important;
+
+      max-height:297mm !important;
+
+      margin:0 !important;
+
+      box-shadow:none !important;
+
+      transform:none !important;
+
+      overflow:hidden !important;
+
+    }
+
+
+    .print-inner .page-number{
+
+      display:none !important;
+
+    }
+
+
+    img{
+
+      -webkit-print-color-adjust:
+        exact !important;
+
+      print-color-adjust:
+        exact !important;
+
+    }
+
+
+    .resume-page{
+
+      -webkit-print-color-adjust:
+        exact !important;
+
+      print-color-adjust:
+        exact !important;
 
     }
 
 
     /*
-      最后一页禁止继续分页。
-    */
+     * 禁止打印页内部元素自行产生分页。
+     */
 
-    .print-page:last-child {
+    .resume-section,
+    .resume-block,
+    .resume-header{
 
-      break-after: auto !important;
+      break-inside:avoid;
 
-      page-break-after: auto !important;
-
-    }
-
-
-    /*
-      ========================================
-      模板样式
-      ========================================
-    */
-
-    .print-page.tech {
-
-      border-top:
-        4px solid var(--accent);
+      page-break-inside:avoid;
 
     }
-
-
-    .print-page.blue .section-title {
-
-      border-bottom-width: 2px;
-
-    }
-
-
-    .print-page.blue .name {
-
-      color: var(--accent);
-
-    }
-
-
-    .print-page.minimal {
-
-      padding: 48px 58px;
-
-    }
-
-
-    .print-page.minimal .name {
-
-      font-size: 29px;
-
-    }
-
-
-    .print-page.minimal .section-title {
-
-      border: 0;
-
-      padding: 0;
-
-      letter-spacing: .13em;
-
-      color: var(--accent);
-
-    }
-
-
-    .print-page.minimal .contact {
-
-      border-bottom:
-        1px solid var(--line);
-
-      padding-bottom: 14px;
-
-    }
-
-
-    .print-page.terminal {
-
-      font-family:
-        "SFMono-Regular",
-        Consolas,
-        "Liberation Mono",
-        "PingFang SC",
-        monospace;
-
-    }
-
-
-    .print-page.terminal .name {
-
-      font-size: 27px;
-
-    }
-
-
-    .print-page.terminal .title {
-
-      color: var(--accent);
-
-    }
-
-
-    .print-page.terminal .section-title {
-
-      border-bottom: 0;
-
-      background: var(--accent);
-
-      color: #fff;
-
-      padding: 4px 8px;
-
-      display: inline-block;
-
-      letter-spacing: .04em;
-
-    }
-
-
-    .print-page.grayblue .section-title {
-
-      color: #40576b;
-
-      border-bottom-color: #8fa0ad;
-
-    }
-
-
-    .print-page.grayblue .name {
-
-      color: #253746;
-
-    }
-
-
-    .print-page.stripe {
-
-      padding-left: 58px;
-
-    }
-
-
-    .print-page.stripe::before {
-
-      content: "";
-
-      position: absolute;
-
-      left: 0;
-
-      top: 0;
-
-      bottom: 0;
-
-      width: 8px;
-
-      background: var(--accent);
-
-    }
-
-
-    .print-page.business .name {
-
-      font-weight: 700;
-
-    }
-
-
-    .print-page.business .section-title {
-
-      border-bottom:
-        2px solid var(--accent);
-
-      font-size: 12px;
-
-      letter-spacing: .16em;
-
-      padding-bottom: 7px;
-
-    }
-
-
-    .print-page.photo .resume-photo {
-
-      width: 92px;
-
-      height: 122px;
-
-    }
-
-
-    .print-page.page-one {
-
-      padding-top: 43px;
-
-      padding-bottom: 40px;
-
-      font-size: 12px;
-
-    }
-
-
-    .print-page.page-one .section {
-
-      margin-top: 12px;
-
-    }
-
-
-    .print-page.page-one .section li {
-
-      margin: 1px 0 2px;
-
-      line-height: 1.45;
-
-    }
-
-
-    .print-page.page-one .contact {
-
-      margin-bottom: 12px;
-
-    }
-
-
-    .print-page.page-one .name {
-
-      font-size: 28px;
-
-    }
-
-
-    .print-page.page-two .section {
-
-      margin-top: 20px;
-
-    }
-
-
-    /*
-      ========================================
-      强制覆盖 screen A4 属性
-      ========================================
-    */
-
-    .print-page .paper-header {
-
-      display: flex;
-
-      justify-content:
-        space-between;
-
-      gap: 24px;
-
-      align-items:
-        flex-start;
-
-    }
-
-
-    .print-page .identity {
-
-      min-width: 0;
-
-      flex: 1;
-
-    }
-
-
-    .print-page .name {
-
-      font-size: 30px;
-
-      font-weight: 800;
-
-      letter-spacing: .02em;
-
-      margin-bottom: 4px;
-
-    }
-
-
-    .print-page .title {
-
-      font-size: 15px;
-
-      color: #4d5961;
-
-      margin-bottom: 7px;
-
-    }
-
-
-    .print-page .contact {
-
-      font-size: 11px;
-
-      color: #68727b;
-
-      margin-bottom: 18px;
-
-      line-height: 1.6;
-
-    }
-
-
-    .print-page .resume-photo {
-
-      width: 82px;
-
-      height: 108px;
-
-      border: 1px solid #d8dde1;
-
-      flex: none;
-
-      overflow: hidden;
-
-    }
-
-
-    .print-page .resume-photo img {
-
-      width: 100%;
-
-      height: 100%;
-
-      object-fit: cover;
-
-    }
-
-
-    .print-page .section {
-
-      margin-top: 17px;
-
-      min-width: 0;
-
-    }
-
-
-    .print-page .section-title {
-
-      font-size: 13px;
-
-      font-weight: 800;
-
-      letter-spacing: .08em;
-
-      color: var(--accent);
-
-      border-bottom:
-        1px solid var(--accent);
-
-      padding-bottom: 5px;
-
-      margin-bottom: 9px;
-
-    }
-
-
-    .print-page .section-body {
-
-      min-width: 0;
-
-    }
-
-
-    .print-page .item-head {
-
-      font-weight: 700;
-
-      margin: 3px 0 5px;
-
-    }
-
-
-    .print-page .section ul {
-
-      margin: 5px 0 10px;
-
-      padding-left: 19px;
-
-    }
-
-
-    .print-page .section li {
-
-      margin: 2px 0 4px;
-
-      line-height: 1.58;
-
-    }
-
-
-    .print-page .paragraph {
-
-      margin: 4px 0 8px;
-
-    }
-
-
-    .print-page .page-number {
-
-      position: absolute;
-
-      right: 34px;
-
-      bottom: 22px;
-
-      font-size: 9px;
-
-      color: #9aa1a7;
-
-    }
-
-
-    /*
-      防止打印内容内部产生新的分页。
-    */
-
-    .print-page > * {
-
-      break-inside: avoid;
-
-    }
-
-
-    .print-page .section {
-
-      break-inside: avoid;
-
-      page-break-inside: avoid;
-
-    }
-
-
-    /*
-      图片防止形成额外打印页。
-    */
-
-    .print-page img {
-
-      break-inside: avoid;
-
-      page-break-inside: avoid;
-
-    }
-
 
   `;
 
-
-  printDocument.head.appendChild(
-    printStyle
-  );
+}
 
 
-  /*
-    当前预览已经分页完成。
-  */
+/* =========================================================
+   BUILD PRINT DOCUMENT
+========================================================= */
 
-  const sourcePages =
+function buildPrintDocument(printWindow){
+
+  if(!printWindow){
+    return false;
+  }
+
+
+  const pagesToPrint =
     Array.from(
       paper.querySelectorAll(
         ".resume-page"
@@ -3066,221 +2490,243 @@ async function preparePrintFrame(
     );
 
 
-  if(!sourcePages.length){
+  if(!pagesToPrint.length){
 
-    throw new Error(
-      "没有找到可打印的简历页面。"
+    return false;
+
+  }
+
+
+  const styleLinks =
+    getScreenStyles();
+
+
+  const pagesHTML =
+    pagesToPrint
+      .map(
+        (page,index) => {
+
+          const clone =
+            page.cloneNode(true);
+
+
+          /*
+           * 打印页中不需要页码。
+           */
+
+          clone
+            .querySelectorAll(
+              ".page-number"
+            )
+            .forEach(
+              node => node.remove()
+            );
+
+
+          /*
+           * 原来的 .resume-page 会受到
+           * 屏幕CSS影响。
+           *
+           * 外面增加 print-page，
+           * 里面使用 print-inner。
+           */
+
+          const html =
+            clone.outerHTML;
+
+
+          return `
+
+            <div
+              class="print-page"
+              data-page="${index + 1}"
+            >
+
+              <div class="print-inner">
+
+                ${html}
+
+              </div>
+
+            </div>
+
+          `;
+
+        }
+      )
+      .join("\n");
+
+
+  const html = `
+
+<!DOCTYPE html>
+
+<html lang="zh-CN">
+
+<head>
+
+  <meta
+    charset="UTF-8"
+  >
+
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1"
+  >
+
+  <title>ResumeFlow - PDF</title>
+
+  ${styleLinks}
+
+  <style>
+
+    ${getPrintCSS()}
+
+  </style>
+
+</head>
+
+<body>
+
+  ${pagesHTML}
+
+</body>
+
+</html>
+
+  `;
+
+
+  printWindow.document.open();
+
+  printWindow.document.write(
+    html
+  );
+
+  printWindow.document.close();
+
+
+  return true;
+
+}
+
+
+/* =========================================================
+   WAIT PRINT DOCUMENT
+========================================================= */
+
+async function waitPrintDocument(printWindow){
+
+  if(!printWindow){
+    return;
+  }
+
+
+  const doc =
+    printWindow.document;
+
+
+  /*
+   * 等待 DOM。
+   */
+
+  if(
+    doc.readyState !==
+    "complete"
+  ){
+
+    await new Promise(
+      resolve => {
+
+        printWindow.addEventListener(
+          "load",
+          resolve,
+          {
+            once:true
+          }
+        );
+
+      }
     );
 
   }
 
 
-  const root =
-    printDocument.getElementById(
-      "resume-print-root"
+  /*
+   * 等待图片。
+   */
+
+  const images =
+    Array.from(
+      doc.images || []
     );
 
 
-  /*
-    逐页复制。
+  if(images.length){
 
-    最重要：
-    原来的 resume-page class 被删除。
+    await Promise.all(
 
-    这样当前 style.css 中针对
-    .resume-page 的规则不会再命中。
-  */
+      images.map(
+        image => {
 
-  sourcePages.forEach(
-    (sourcePage,index) => {
+          if(image.complete){
 
-      const page =
-        sourcePage.cloneNode(true);
+            return Promise.resolve();
+
+          }
 
 
-      /*
-        删除原 A4 class。
-      */
+          return new Promise(
+            resolve => {
 
-      page.className =
-        sourcePage.className
-          .split(/\s+/)
-          .filter(
-            name =>
-              name !== "resume-page"
-          )
-          .join(" ");
+              image.addEventListener(
+                "load",
+                resolve,
+                {
+                  once:true
+                }
+              );
 
-
-      /*
-        加入独立打印 class。
-      */
-
-      page.classList.add(
-        "print-page"
-      );
-
-
-      /*
-        复制主题变量。
-      */
-
-      page.style.setProperty(
-        "--accent",
-        THEMES[state.theme].main
-      );
-
-      page.style.setProperty(
-        "--accent-soft",
-        THEMES[state.theme].light
-      );
-
-
-      /*
-        清理屏幕布局属性。
-      */
-
-      page.style.width =
-        "210mm";
-
-      page.style.height =
-        "297mm";
-
-      page.style.minWidth =
-        "210mm";
-
-      page.style.maxWidth =
-        "210mm";
-
-      page.style.minHeight =
-        "297mm";
-
-      page.style.maxHeight =
-        "297mm";
-
-      page.style.margin =
-        "0";
-
-      page.style.transform =
-        "none";
-
-      page.style.zoom =
-        "1";
-
-      page.style.boxShadow =
-        "none";
-
-
-      /*
-        页面之间使用 break-after。
-      */
-
-      if(
-        index <
-        sourcePages.length - 1
-      ){
-
-        page.style.breakAfter =
-          "page";
-
-        page.style.pageBreakAfter =
-          "always";
-
-      }else{
-
-        page.style.breakAfter =
-          "auto";
-
-        page.style.pageBreakAfter =
-          "auto";
-
-      }
-
-
-      root.appendChild(
-        page
-      );
-
-    }
-  );
-
-
-  /*
-    等待图片。
-  */
-
-  await waitForPrintImages(
-    printDocument
-  );
-
-
-  /*
-    等待字体。
-  */
-
-  await waitForPrintFonts(
-    printDocument
-  );
-
-
-  /*
-    等待浏览器完成布局。
-  */
-
-  await new Promise(
-    resolve => {
-
-      printWindow.requestAnimationFrame(
-        () => {
-
-          printWindow.requestAnimationFrame(
-            () => {
-
-              resolve();
+              image.addEventListener(
+                "error",
+                resolve,
+                {
+                  once:true
+                }
+              );
 
             }
           );
 
         }
-      );
+      )
 
-    }
-  );
-
-}
-
-
-/*
-  清理 iframe。
-*/
-
-function removePrintFrame(
-  iframe
-){
-
-  if(
-    iframe &&
-    iframe.parentNode
-  ){
-
-    iframe.parentNode.removeChild(
-      iframe
     );
 
   }
 
+
+  /*
+   * 等一帧，让浏览器完成 layout。
+   */
+
+  await new Promise(
+    resolve =>
+      printWindow.requestAnimationFrame(
+        () =>
+          printWindow.requestAnimationFrame(
+            resolve
+          )
+      )
+  );
+
+
 }
 
 
-/*
-  独立打印。
-
-  不再调用：
-    window.print()
-
-  而是：
-    iframe.contentWindow.print()
-*/
+/* =========================================================
+   PRINT RESUME
+========================================================= */
 
 async function printResume(){
 
@@ -3296,124 +2742,194 @@ async function printResume(){
 
 
   /*
-    重新生成当前分页。
-  */
+   * 先重新渲染。
+   */
 
   render();
 
 
   /*
-    等待预览布局完成。
-  */
+   * 关键：
+   *
+   * window.open 必须发生在用户点击事件的同步阶段。
+   *
+   * 不要放进 setTimeout。
+   * 不要放进 await。
+   * 不要先等待 iframe。
+   */
 
-  await new Promise(
-    resolve =>
-      setTimeout(
-        resolve,
-        120
-      )
-  );
+  const printWindow =
+    window.open(
+      "",
+      "_blank"
+    );
 
 
-  let iframe = null;
+  /*
+   * 如果浏览器拦截弹窗。
+   */
 
+  if(!printWindow){
+
+    alert(
+      "浏览器阻止了打印窗口。\n\n" +
+      "请允许 ResumeFlow 打开新窗口，然后再次点击「导出 PDF」。"
+    );
+
+    return;
+
+  }
+
+
+  /*
+   * 先写入一个简单的加载页面。
+   */
 
   try{
 
-    iframe =
-      createPrintFrame();
+    printWindow.document.open();
 
+    printWindow.document.write(`
 
-    await preparePrintFrame(
-      iframe
-    );
+      <!DOCTYPE html>
 
+      <html lang="zh-CN">
 
-    const printWindow =
-      iframe.contentWindow;
+      <head>
 
+        <meta charset="UTF-8">
 
-    /*
-      最终检查：
+        <title>ResumeFlow PDF</title>
 
-      打印 iframe 中有几页。
-    */
+      </head>
 
-    const printPages =
-      iframe.contentDocument
-        .querySelectorAll(
-          ".print-page"
-        );
+      <body
+        style="
+          margin:0;
+          padding:40px;
+          font-family:Arial,sans-serif;
+        "
+      >
 
+        正在准备 PDF……
 
-    console.log(
-      "ResumeFlow PDF打印页数：",
-      printPages.length
-    );
+      </body>
 
+      </html>
 
-    /*
-      Safari 必须 focus iframe window。
-    */
+    `);
 
-    printWindow.focus();
-
-
-    /*
-      再等待一小段时间，
-      确保打印布局稳定。
-    */
-
-    await new Promise(
-      resolve =>
-        setTimeout(
-          resolve,
-          100
-        )
-    );
-
-
-    printWindow.print();
-
-
-    /*
-      Safari 打印完成后清理。
-    */
-
-    setTimeout(
-      () => {
-
-        removePrintFrame(
-          iframe
-        );
-
-      },
-      2000
-    );
-
+    printWindow.document.close();
 
   }catch(error){
 
     console.error(
-      "ResumeFlow PDF打印失败：",
+      "创建打印页面失败",
+      error
+    );
+
+    try{
+      printWindow.close();
+    }catch(_){}
+
+    alert(
+      "无法创建打印页面。"
+    );
+
+    return;
+
+  }
+
+
+  /*
+   * 写入真正的打印文档。
+   */
+
+  const success =
+    buildPrintDocument(
+      printWindow
+    );
+
+
+  if(!success){
+
+    alert(
+      "没有可打印的简历页面。"
+    );
+
+    return;
+
+  }
+
+
+  /*
+   * 等待资源。
+   */
+
+  try{
+
+    await waitPrintDocument(
+      printWindow
+    );
+
+  }catch(error){
+
+    console.warn(
+      "等待打印页面资源时出现异常",
+      error
+    );
+
+  }
+
+
+  /*
+   * 再次聚焦。
+   */
+
+  try{
+
+    printWindow.focus();
+
+  }catch(error){
+
+    console.warn(
+      error
+    );
+
+  }
+
+
+  /*
+   * 打印。
+   *
+   * 这里不关闭窗口。
+   *
+   * Safari / Chrome 都保留独立打印页，
+   * 用户可以检查页面后再返回。
+   */
+
+  try{
+
+    printWindow.print();
+
+  }catch(error){
+
+    console.error(
+      "打印调用失败",
       error
     );
 
 
-    removePrintFrame(
-      iframe
-    );
-
-
     /*
-      不再自动 window.print()。
-
-      因为自动 fallback 会重新进入
-      原来的 print CSS，可能再次产生空白页。
-    */
+     * 如果浏览器没有自动弹出打印对话框，
+     * 打印页面仍然存在。
+     *
+     * 用户可以在新窗口中手动执行打印。
+     */
 
     alert(
-      "PDF打印准备失败，请重新点击“导出PDF”重试。"
+      "打印窗口已经打开，但浏览器没有自动弹出打印对话框。\n\n" +
+      "请在新打开的 ResumeFlow PDF 页面中手动选择「打印」。"
     );
 
   }
@@ -3426,380 +2942,468 @@ async function printResume(){
 ========================================================= */
 
 
-/* demo */
+/*
+ * DEMO
+ */
 
-demoBtn.addEventListener(
-  "click",
-  () => {
+if(demoBtn){
 
-    source.value =
-      DEMO_MD;
+  demoBtn.addEventListener(
+    "click",
+    () => {
 
-    render();
-
-  }
-);
-
-
-/* render */
-
-renderBtn.addEventListener(
-  "click",
-  render
-);
-
-
-/* clear */
-
-clearBtn.addEventListener(
-  "click",
-  () => {
-
-    if(
-      !confirm(
-        "确定清空当前简历吗？"
-      )
-    ){
-
-      return;
-
-    }
-
-
-    source.value = "";
-
-    resumeData = null;
-
-    paper.innerHTML = "";
-
-    paper.className =
-      "paper";
-
-    save();
-
-  }
-);
-
-
-/* file button */
-
-fileBtn.addEventListener(
-  "click",
-  () => {
-
-    fileInput.click();
-
-  }
-);
-
-
-fileInput.addEventListener(
-  "change",
-  () => {
-
-    readFile(
-      fileInput.files[0]
-    );
-
-    fileInput.value = "";
-
-  }
-);
-
-
-/* drag */
-
-[
-  "dragenter",
-  "dragover"
-].forEach(
-  type => {
-
-    dropZone.addEventListener(
-      type,
-      event => {
-
-        event.preventDefault();
-
-        dropZone.classList.add(
-          "drag"
-        );
-
-      }
-    );
-
-  }
-);
-
-
-[
-  "dragleave",
-  "drop"
-].forEach(
-  type => {
-
-    dropZone.addEventListener(
-      type,
-      event => {
-
-        event.preventDefault();
-
-        dropZone.classList.remove(
-          "drag"
-        );
-
-      }
-    );
-
-  }
-);
-
-
-dropZone.addEventListener(
-  "drop",
-  event => {
-
-    const file =
-      event.dataTransfer.files[0];
-
-    readFile(file);
-
-  }
-);
-
-
-/* photo */
-
-photoBtn.addEventListener(
-  "click",
-  () => {
-
-    photoFile.click();
-
-  }
-);
-
-
-photoFile.addEventListener(
-  "change",
-  () => {
-
-    readPhoto(
-      photoFile.files[0]
-    );
-
-    photoFile.value = "";
-
-  }
-);
-
-
-/* remove photo */
-
-removePhotoBtn.addEventListener(
-  "click",
-  () => {
-
-    localStorage.removeItem(
-      STORAGE.photo
-    );
-
-    renderPhotoPreview();
-
-    if(source.value.trim()){
+      source.value =
+        DEMO_MD;
 
       render();
 
+      save();
+
     }
+  );
 
-  }
-);
+}
 
 
-/* template */
+/*
+ * PDF
+ */
 
-templates.addEventListener(
-  "click",
-  event => {
+if(pdfBtn){
 
-    const btn =
-      event.target.closest(
-        "[data-t]"
+  pdfBtn.addEventListener(
+    "click",
+    () => {
+
+      /*
+       * 注意：
+       * 这里直接调用。
+       *
+       * 不使用：
+       *
+       * setTimeout
+       * Promise.then
+       * iframe
+       *
+       * window.open 必须保留在用户手势链路中。
+       */
+
+      printResume();
+
+    }
+  );
+
+}
+
+
+/*
+ * RENDER
+ */
+
+if(renderBtn){
+
+  renderBtn.addEventListener(
+    "click",
+    () => {
+
+      render();
+
+      save();
+
+    }
+  );
+
+}
+
+
+/*
+ * CLEAR
+ */
+
+if(clearBtn){
+
+  clearBtn.addEventListener(
+    "click",
+    () => {
+
+      source.value = "";
+
+      resumeData = null;
+
+      paper.innerHTML = "";
+
+      save();
+
+    }
+  );
+
+}
+
+
+/*
+ * FILE BUTTON
+ */
+
+if(fileBtn){
+
+  fileBtn.addEventListener(
+    "click",
+    () => {
+
+      fileInput?.click();
+
+    }
+  );
+
+}
+
+
+if(fileInput){
+
+  fileInput.addEventListener(
+    "change",
+    event => {
+
+      const file =
+        event.target.files?.[0];
+
+      if(file){
+
+        readFile(file);
+
+      }
+
+      event.target.value = "";
+
+    }
+  );
+
+}
+
+
+/*
+ * DROP
+ */
+
+if(dropZone){
+
+  dropZone.addEventListener(
+    "dragover",
+    event => {
+
+      event.preventDefault();
+
+      dropZone.classList.add(
+        "dragover"
       );
 
-    if(!btn){
-      return;
     }
+  );
 
 
-    state.template =
-      btn.dataset.t;
+  dropZone.addEventListener(
+    "dragleave",
+    () => {
 
-    applyTemplate();
+      dropZone.classList.remove(
+        "dragover"
+      );
 
-    if(source.value.trim()){
+    }
+  );
+
+
+  dropZone.addEventListener(
+    "drop",
+    event => {
+
+      event.preventDefault();
+
+      dropZone.classList.remove(
+        "dragover"
+      );
+
+
+      const file =
+        event.dataTransfer
+          ?.files?.[0];
+
+
+      if(file){
+
+        readFile(file);
+
+      }
+
+    }
+  );
+
+}
+
+
+/*
+ * PHOTO
+ */
+
+if(photoBtn){
+
+  photoBtn.addEventListener(
+    "click",
+    () => {
+
+      photoFile?.click();
+
+    }
+  );
+
+}
+
+
+if(photoFile){
+
+  photoFile.addEventListener(
+    "change",
+    event => {
+
+      const file =
+        event.target.files?.[0];
+
+      if(file){
+
+        readPhoto(file);
+
+      }
+
+      event.target.value = "";
+
+    }
+  );
+
+}
+
+
+if(removePhotoBtn){
+
+  removePhotoBtn.addEventListener(
+    "click",
+    () => {
+
+      localStorage.removeItem(
+        STORAGE.photo
+      );
+
+      renderPhotoPreview();
 
       render();
 
-    }else{
+      save();
+
+    }
+  );
+
+}
+
+
+/*
+ * TEMPLATE
+ */
+
+if(templates){
+
+  templates.addEventListener(
+    "change",
+    () => {
+
+      state.template =
+        templates.value;
+
+      applyTemplate();
+
+      save();
+
+    }
+  );
+
+}
+
+
+/*
+ * THEME
+ */
+
+if(themes){
+
+  themes.addEventListener(
+    "change",
+    () => {
+
+      state.theme =
+        themes.value;
+
+      applyTheme();
+
+      save();
+
+    }
+  );
+
+}
+
+
+/*
+ * PAGE MODE
+ */
+
+if(pages){
+
+  pages.addEventListener(
+    "change",
+    () => {
+
+      state.pageMode =
+        pages.value;
+
+      render();
+
+      save();
+
+    }
+  );
+
+}
+
+
+/*
+ * PHOTO MODE
+ */
+
+if(photoMode){
+
+  photoMode.addEventListener(
+    "change",
+    () => {
+
+      state.showPhoto =
+        photoMode.value ===
+        "show";
+
+      render();
+
+      save();
+
+    }
+  );
+
+}
+
+
+/*
+ * FONT
+ */
+
+if(font){
+
+  font.addEventListener(
+    "change",
+    () => {
+
+      state.font =
+        font.value;
+
+      applyFont();
+
+      save();
+
+    }
+  );
+
+}
+
+
+/*
+ * FONT SIZE
+ */
+
+if(size){
+
+  size.addEventListener(
+    "input",
+    () => {
+
+      state.fontSize =
+        Number(
+          size.value
+        );
+
+
+      applyFont();
+
+      save();
+
+    }
+  );
+
+}
+
+
+/*
+ * ZOOM
+ */
+
+if(zoom){
+
+  zoom.addEventListener(
+    "input",
+    () => {
+
+      state.zoom =
+        Number(
+          zoom.value
+        );
+
 
       updateScale();
 
+      save();
+
     }
+  );
 
-  }
-);
+}
 
 
-/* theme */
+/*
+ * SOURCE AUTO SAVE
+ */
 
-themes.addEventListener(
-  "click",
-  event => {
+if(source){
 
-    const btn =
-      event.target.closest(
-        "[data-theme]"
+  let saveTimer = null;
+
+
+  source.addEventListener(
+    "input",
+    () => {
+
+      clearTimeout(
+        saveTimer
       );
 
-    if(!btn){
-      return;
-    }
 
+      saveTimer =
+        setTimeout(
+          () => {
 
-    state.theme =
-      btn.dataset.theme;
+            save();
 
-    applyTheme();
-
-    if(source.value.trim()){
-
-      render();
+          },
+          300
+        );
 
     }
+  );
 
-  }
-);
-
-
-/* page mode */
-
-pages.addEventListener(
-  "change",
-  () => {
-
-    state.pageMode =
-      pages.value;
-
-    if(source.value.trim()){
-
-      render();
-
-    }
-
-  }
-);
-
-
-/* photo mode */
-
-photoMode.addEventListener(
-  "change",
-  () => {
-
-    state.showPhoto =
-      photoMode.value
-      === "show";
-
-    if(source.value.trim()){
-
-      render();
-
-    }
-
-  }
-);
-
-
-/* font */
-
-font.addEventListener(
-  "change",
-  () => {
-
-    state.font =
-      font.value;
-
-    applyFont();
-
-    save();
-
-  }
-);
-
-
-/* font size */
-
-size.addEventListener(
-  "input",
-  () => {
-
-    state.fontSize =
-      Number(size.value);
-
-    applyFont();
-
-    if(source.value.trim()){
-
-      render();
-
-    }
-
-  }
-);
-
-
-/* zoom */
-
-zoom.addEventListener(
-  "input",
-  () => {
-
-    state.zoom =
-      Number(zoom.value);
-
-    updateScale();
-
-    save();
-
-  }
-);
-
-
-/* source autosave */
-
-source.addEventListener(
-  "input",
-  () => {
-
-    save();
-
-  }
-);
-
-
-/* =========================================================
-   PDF
-========================================================= */
-
-pdfBtn.addEventListener(
-  "click",
-  () => {
-
-    printResume();
-
-  }
-);
+}
 
 
 /* =========================================================
@@ -3817,13 +3421,13 @@ if(
 
       navigator.serviceWorker
         .register(
-          "./sw.js?v=1.3.9"
+          "./sw.js?v=1.4.0"
         )
         .catch(
           error => {
 
             console.warn(
-              "Service Worker注册失败",
+              "Service Worker 注册失败",
               error
             );
 
@@ -3837,7 +3441,7 @@ if(
 
 
 /* =========================================================
-   INIT
+   START
 ========================================================= */
 
 load();
