@@ -1270,17 +1270,24 @@ function installPaginationStyle() {
 
 /* =======================================================
    A4 AUTO PAGINATION
-   V1.3.2
+   V1.3.4
 
-   结构：
+   智能分页策略：
 
-   #paper.preview-stack
-       ├── .paper.resume-page
-       ├── .paper.resume-page
-       └── .paper.resume-page
+   1. 普通 section：
+      - 尽量作为一个整体分页
 
-   #paper 本身不是 A4
-   .resume-page 才是真正的 A4
+   2. 工作经历 / 项目经历：
+      - 按公司 / 项目作为最小分页单元
+      - 一个公司尽量保持在同一页
+      - 当前页放不下完整公司时，整体移动到下一页
+      - 允许多个公司放在同一页
+      - 如果一个公司本身超过一页，再允许继续拆分
+
+   3. 防止：
+      - A4 套 A4
+      - 页面大面积空白
+      - 公司标题和公司内容被拆开
 ======================================================= */
 
 function paginatePreview() {
@@ -1289,15 +1296,11 @@ function paginatePreview() {
     return;
   }
 
-  /*
-   * 取得当前已经完成渲染的内容：
-   *
-   * header
-   * section
-   * section
-   * section
-   * ...
-   */
+
+  /* =====================================================
+     取得当前已经完成渲染的内容
+  ===================================================== */
+
   const nodes =
     Array.from(
       paper.childNodes
@@ -1307,25 +1310,21 @@ function paginatePreview() {
         Node.ELEMENT_NODE
     );
 
-  /*
-   * 清空原来的连续内容
-   */
+
+  /* =====================================================
+     清空外层容器
+  ===================================================== */
+
   paper.innerHTML = "";
 
-  /*
-   * 关键：
-   *
-   * 外层分页容器绝对不能有 .paper
-   *
-   * 因为 .paper 本身就是 A4。
-   */
   paper.className =
     "preview-stack";
 
 
-  /*
-   * 创建真正的一张 A4
-   */
+  /* =====================================================
+     创建真正的 A4 页面
+  ===================================================== */
+
   function createPage() {
 
     const page =
@@ -1333,22 +1332,16 @@ function paginatePreview() {
         "div"
       );
 
-    /*
-     * 这里才使用 .paper
-     *
-     * 因为这一层就是实际的 A4 页面。
-     */
     page.className =
       `paper resume-page ${state.template} page-auto`;
 
 
-    /*
-     * 主题色
-     */
     const theme =
       THEMES[state.theme] ||
       THEMES.blue;
 
+
+    /* 主题 */
 
     page.style.setProperty(
       "--accent",
@@ -1371,18 +1364,16 @@ function paginatePreview() {
     );
 
 
-    /*
-     * 正文字号
-     */
+    /* 字号 */
+
     page.style.setProperty(
       "--resume-font-size",
       `${state.fontSize}px`
     );
 
 
-    /*
-     * A4 尺寸
-     */
+    /* A4 */
+
     page.style.boxSizing =
       "border-box";
 
@@ -1420,76 +1411,551 @@ function paginatePreview() {
       "#fff";
 
 
-    /*
-     * 加入分页容器
-     */
-    paper.appendChild(
-      page
-    );
+    paper.appendChild(page);
 
     return page;
   }
 
 
-  /*
-   * 第一页
-   */
-  let page =
-    createPage();
+  /* =====================================================
+     判断页面是否溢出
+  ===================================================== */
+
+  function isOverflow(page) {
+
+    return (
+      page.scrollHeight >
+      page.clientHeight + 1
+    );
+
+  }
 
 
-  /*
-   * 按模块依次放入
-   */
-  nodes.forEach(node => {
+  /* =====================================================
+     创建 section 副本
+
+     用于：
+     工作经历跨页时，在下一页重新显示
+     「工作经历」标题。
+  ===================================================== */
+
+  function createSectionShell(section) {
+
+    const shell =
+      document.createElement(
+        "section"
+      );
+
+    shell.className =
+      section.className;
+
+
+    const title =
+      section.querySelector(
+        ".section-title"
+      );
+
+    if (title) {
+
+      shell.appendChild(
+        title.cloneNode(true)
+      );
+
+    }
+
+
+    const body =
+      document.createElement(
+        "div"
+      );
+
+    body.className =
+      "section-body";
+
+
+    shell.appendChild(body);
+
+
+    return {
+      shell,
+      body
+    };
+  }
+
+
+  /* =====================================================
+     将工作经历 / 项目经历拆成「公司 / 项目单元」
+
+     当前 HTML 大致是：
+
+     .section
+       .section-title
+       .section-body
+         .item-head
+         p
+         ul
+         .item-head
+         p
+         ul
+
+     因此：
+
+     item-head
+       +
+     后面的 p / ul
+
+     共同构成一个完整经历单元。
+  ===================================================== */
+
+  function getExperienceUnits(section) {
+
+    const body =
+      section.querySelector(
+        ".section-body"
+      );
+
+    if (!body) {
+      return [];
+    }
+
+
+    const children =
+      Array.from(
+        body.children
+      );
+
+
+    const units = [];
+
+    let current =
+      null;
+
+
+    children.forEach(child => {
+
+      const isHead =
+        child.classList.contains(
+          "item-head"
+        );
+
+
+      if (isHead) {
+
+        current = {
+          nodes: []
+        };
+
+        units.push(
+          current
+        );
+
+      }
+
+
+      /*
+       * 正常情况下所有内容都会
+       * 跟随最近一个 item-head。
+       */
+
+      if (current) {
+
+        current.nodes.push(
+          child
+        );
+
+      } else {
+
+        /*
+         * 如果出现没有公司标题的
+         * 前置内容，也不要丢失。
+         */
+
+        current = {
+          nodes: [
+            child
+          ]
+        };
+
+        units.push(
+          current
+        );
+
+      }
+
+    });
+
+
+    return units;
+  }
+
+
+  /* =====================================================
+     将一个完整经历单元加入页面
+
+     返回：
+     true  = 成功放入
+     false = 放不下
+  ===================================================== */
+
+  function tryAppendUnit(
+    page,
+    sectionShell,
+    unit
+  ) {
+
+    const body =
+      sectionShell.body;
+
+
+    unit.nodes.forEach(
+      node => {
+
+        body.appendChild(
+          node
+        );
+
+      }
+    );
+
+
+    /*
+     * 如果整个页面没有溢出，
+     * 说明这个公司完整放下了。
+     */
+
+    if (!isOverflow(page)) {
+
+      return true;
+
+    }
+
+
+    /*
+     * 放不下。
+     *
+     * 把这个公司完整移除，
+     * 交给下一页。
+     */
+
+    unit.nodes.forEach(
+      node => {
+
+        if (
+          node.parentNode === body
+        ) {
+
+          body.removeChild(
+            node
+          );
+
+        }
+
+      }
+    );
+
+
+    return false;
+  }
+
+
+  /* =====================================================
+     处理「工作经历 / 项目经历」
+
+     核心逻辑：
+     公司级别分页
+  ===================================================== */
+
+  function paginateGroupedSection(
+    section,
+    currentPage
+  ) {
+
+    const units =
+      getExperienceUnits(
+        section
+      );
+
+
+    /*
+     * 没有 item-head，
+     * 退回普通 section。
+     */
+
+    if (!units.length) {
+
+      currentPage.appendChild(
+        section
+      );
+
+      if (
+        isOverflow(
+          currentPage
+        ) &&
+        currentPage.children.length > 1
+      ) {
+
+        currentPage.removeChild(
+          section
+        );
+
+        currentPage =
+          createPage();
+
+        currentPage.appendChild(
+          section
+        );
+
+      }
+
+      return currentPage;
+    }
+
+
+    let page =
+      currentPage;
+
+
+    let sectionShell =
+      null;
+
+
+    units.forEach(
+      (unit, index) => {
+
+        /*
+         * 当前页面还没有这个 section
+         * 时，先创建标题 + body。
+         */
+
+        if (!sectionShell) {
+
+          const created =
+            createSectionShell(
+              section
+            );
+
+          sectionShell =
+            created;
+
+          page.appendChild(
+            sectionShell.shell
+          );
+
+        }
+
+
+        /*
+         * 尝试把完整公司经历
+         * 放入当前页面。
+         */
+
+        const success =
+          tryAppendUnit(
+            page,
+            sectionShell,
+            unit
+          );
+
+
+        if (success) {
+
+          return;
+
+        }
+
+
+        /*
+         * 当前页面已经有其它内容，
+         * 或者已有公司经历：
+         *
+         * → 当前公司整体移动到下一页
+         */
+
+        if (
+          page.children.length > 1 ||
+          sectionShell.body.children.length > 0
+        ) {
+
+          /*
+           * 当前 section 如果没有任何
+           * 公司内容，只剩标题，则删除。
+           */
+
+          if (
+            sectionShell.body.children.length === 0
+          ) {
+
+            if (
+              sectionShell.shell.parentNode ===
+              page
+            ) {
+
+              page.removeChild(
+                sectionShell.shell
+              );
+
+            }
+
+          }
+
+
+          page =
+            createPage();
+
+
+          sectionShell =
+            createSectionShell(
+              section
+            );
+
+
+          page.appendChild(
+            sectionShell.shell
+          );
+
+
+          /*
+           * 再尝试一次。
+           */
+
+          const secondTry =
+            tryAppendUnit(
+              page,
+              sectionShell,
+              unit
+            );
+
+
+          /*
+           * 如果单个公司本身就超过
+           * 一页，则允许它继续撑满
+           * 当前页面。
+           *
+           * 不制造无限分页。
+           */
+
+          if (!secondTry) {
+
+            console.warn(
+              "ResumeFlow: 单个经历单元超过一页。",
+              unit
+            );
+
+          }
+
+        }
+
+      }
+    );
+
+
+    return page;
+  }
+
+
+  /* =====================================================
+     普通 section 分页
+  ===================================================== */
+
+  function paginateNormalNode(
+    node,
+    currentPage
+  ) {
+
+    let page =
+      currentPage;
+
 
     page.appendChild(
       node
     );
 
 
-    /*
-     * 当前页面超过 A4 高度
-     */
     if (
-      page.scrollHeight >
-        page.clientHeight + 1
+      isOverflow(page) &&
+      page.children.length > 1
     ) {
 
-      /*
-       * 如果当前页面已经有其它内容，
-       * 将刚刚加入的模块移动到下一页。
-       */
-      if (
-        page.children.length > 1
-      ) {
+      page.removeChild(
+        node
+      );
 
-        page.removeChild(
-          node
-        );
+      page =
+        createPage();
 
-        page =
-          createPage();
+      page.appendChild(
+        node
+      );
 
-        page.appendChild(
-          node
-        );
-
-      } else {
-
-        /*
-         * 单个模块本身超过一页。
-         *
-         * 不继续创建空页面，
-         * 防止无限分页。
-         */
-        console.warn(
-          "ResumeFlow: 单个内容模块超过一页。",
-          node
-        );
-
-      }
     }
+
+
+    return page;
+  }
+
+
+  /* =====================================================
+     主分页流程
+  ===================================================== */
+
+  let page =
+    createPage();
+
+
+  nodes.forEach(node => {
+
+    /*
+     * 工作经历：
+     * 按公司拆分
+     */
+
+    if (
+      node.classList.contains(
+        "section-experience"
+      )
+    ) {
+
+      page =
+        paginateGroupedSection(
+          node,
+          page
+        );
+
+      return;
+    }
+
+
+    /*
+     * 项目经历：
+     * 按项目拆分
+     */
+
+    if (
+      node.classList.contains(
+        "section-projects"
+      )
+    ) {
+
+      page =
+        paginateGroupedSection(
+          node,
+          page
+        );
+
+      return;
+    }
+
+
+    /*
+     * 其它模块：
+     * 按整个 section 处理
+     */
+
+    page =
+      paginateNormalNode(
+        node,
+        page
+      );
 
   });
 
