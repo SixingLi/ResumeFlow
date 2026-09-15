@@ -1,5 +1,5 @@
 /* =========================================================
-   ResumeFlow V1.4.0
+   ResumeFlow V1.4.1
 
    核心：
    1. Markdown / TXT / JSON
@@ -12,6 +12,12 @@
    8. 独立顶层打印页面 PDF
    9. localStorage
    10. PWA
+
+   V1.4.1：
+   - 移除 print-inner
+   - 每个 resume-page 直接作为一个打印页
+   - 避免 296mm 外层 + 297mm 内层造成空白页
+   - 不使用 iframe
 ========================================================= */
 
 (() => {
@@ -1082,8 +1088,7 @@ function paginate(){
 
 
   /*
-   * 一页模式：
-   * 不分页，允许内容在页面内部自然显示。
+   * 一页模式
    */
 
   if(state.pageMode === "one"){
@@ -1133,16 +1138,7 @@ function paginate(){
       );
 
 
-    let sectionOverflow =
-      isOverflow(currentPage);
-
-
-    /*
-     * 整个 section 放不下：
-     * 删除 section，重新按 block 分页。
-     */
-
-    if(sectionOverflow){
+    if(isOverflow(currentPage)){
 
       currentPage.removeChild(
         section
@@ -1168,14 +1164,7 @@ function paginate(){
         );
 
 
-      /*
-       * block-by-block
-       */
-
       for(const block of sectionData.blocks){
-
-        const before =
-          newSection.innerHTML;
 
         addBlockToSection(
           newSection,
@@ -1185,193 +1174,46 @@ function paginate(){
 
         if(isOverflow(currentPage)){
 
-          newSection.innerHTML =
-            before;
-
-
-          /*
-           * 如果单个 block 本身
-           * 就大于一页，则进一步拆 bullet。
-           */
-
-          const blockLines =
-            block.lines || [];
-
-          const blockBullets =
-            block.bullets || [];
-
-
-          const hasContent =
-            blockLines.length ||
-            blockBullets.length;
-
-
-          if(!hasContent){
-            continue;
-          }
-
-
-          let partial = {
-
-            head:block.head || "",
-
-            lines:[],
-
-            bullets:[]
-
-          };
-
-
-          const candidates = [
-
-            ...blockLines.map(
-              line => ({
-                type:"line",
-                value:line
-              })
-            ),
-
-            ...blockBullets.map(
-              bullet => ({
-                type:"bullet",
-                value:bullet
-              })
-            )
-
-          ];
-
-
-          for(const item of candidates){
-
-            if(item.type === "line"){
-
-              partial.lines.push(
-                item.value
-              );
-
-            }else{
-
-              partial.bullets.push(
-                item.value
-              );
-
-            }
-
-
-            newSection.innerHTML = "";
-
-
-            addBlockToSection(
-              newSection,
-              partial
+          const blocks =
+            newSection.querySelectorAll(
+              ".resume-block"
             );
 
 
-            if(isOverflow(currentPage)){
-
-              /*
-               * 删除最后一个元素
-               */
-
-              partial.lines =
-                partial.lines.filter(
-                  x => x !== item.value
-                );
-
-              partial.bullets =
-                partial.bullets.filter(
-                  x => x !== item.value
-                );
+          const last =
+            blocks[blocks.length - 1];
 
 
-              newSection.innerHTML = "";
-
-
-              if(
-                partial.lines.length ||
-                partial.bullets.length
-              ){
-
-                addBlockToSection(
-                  newSection,
-                  partial
-                );
-
-              }
-
-
-              /*
-               * 创建下一页
-               */
-
-              currentPage =
-                createPage(
-                  paper.children.length + 1
-                );
-
-              addHeader(
-                currentPage
-              );
-
-              paper.appendChild(
-                currentPage
-              );
-
-
-              const nextSection =
-                addSection(
-                  currentPage,
-                  sectionData
-                );
-
-
-              partial = {
-
-                head:block.head || "",
-
-                lines:[],
-                bullets:[]
-
-              };
-
-
-              if(item.type === "line"){
-
-                partial.lines.push(
-                  item.value
-                );
-
-              }else{
-
-                partial.bullets.push(
-                  item.value
-                );
-
-              }
-
-
-              nextSection.innerHTML = "";
-
-              addBlockToSection(
-                nextSection,
-                partial
-              );
-
-
-              /*
-               * 后续 item 使用新的 section
-               */
-
-              newSection.innerHTML = "";
-
-              /*
-               * 这里结束当前 block 的细粒度拆分。
-               * 剩余内容继续以 block 形式加入下一页。
-               */
-
-            }
-
+          if(last){
+            last.remove();
           }
+
+
+          currentPage =
+            createPage(
+              paper.children.length + 1
+            );
+
+          addHeader(
+            currentPage
+          );
+
+          paper.appendChild(
+            currentPage
+          );
+
+
+          const nextSection =
+            addSection(
+              currentPage,
+              sectionData
+            );
+
+
+          addBlockToSection(
+            nextSection,
+            block
+          );
 
         }
 
@@ -1383,10 +1225,6 @@ function paginate(){
     }
 
 
-    /*
-     * 当前 section 正常放入。
-     */
-
     for(const block of sectionData.blocks){
 
       addBlockToSection(
@@ -1396,10 +1234,6 @@ function paginate(){
 
 
       if(isOverflow(currentPage)){
-
-        /*
-         * 删除刚刚添加的 block
-         */
 
         const blocks =
           section.querySelectorAll(
@@ -1415,10 +1249,6 @@ function paginate(){
           last.remove();
         }
 
-
-        /*
-         * 创建下一页
-         */
 
         currentPage =
           createPage(
@@ -1454,7 +1284,7 @@ function paginate(){
 
 
   /*
-   * 两页模式限制最多两页。
+   * 两页模式最多两页
    */
 
   if(state.pageMode === "two"){
@@ -1494,6 +1324,7 @@ function finishPagination(){
 
       page.dataset.page =
         index + 1;
+
 
       page.querySelectorAll(
         ".page-number"
@@ -2121,35 +1952,6 @@ function readPhoto(file){
 
 
 /* =========================================================
-   PRINT
-   V1.4.0
-========================================================= */
-
-/*
- * 这里是本版本最重要的修改。
- *
- * 不再：
- *
- * iframe
- * hidden iframe
- * iframe.contentWindow.print()
- *
- * 而是：
- *
- * 用户点击
- *    ↓
- * window.open() 同步创建顶层窗口
- *    ↓
- * 写入已经分页完成的简历
- *    ↓
- * 独立打印
- *
- * 这样可以避免 Chrome Popup/iframe 打印限制，
- * 同时避免 Safari 把主页面的 A4布局参与打印分页。
- */
-
-
-/* =========================================================
    PRINT FONT
 ========================================================= */
 
@@ -2204,45 +2006,94 @@ function getPrintFontFamily(){
 
 
 /* =========================================================
-   GET SCREEN STYLES
+   SCREEN CSS
 ========================================================= */
 
-function getScreenStyles(){
+/*
+ * 从当前页面获取 stylesheet。
+ *
+ * 这里不直接复制 @media print，
+ * 防止原页面的打印CSS再次干扰独立打印页。
+ */
 
-  const links =
+function getScreenCSS(){
+
+  let css = "";
+
+
+  const sheets =
     Array.from(
-      document.querySelectorAll(
-        'link[rel="stylesheet"]'
-      )
+      document.styleSheets
     );
 
 
-  const styles =
-    links.map(
-      link => {
+  for(const sheet of sheets){
 
-        const href =
-          link.getAttribute(
-            "href"
-          );
+    try{
 
-        if(!href){
-          return "";
+      const rules =
+        Array.from(
+          sheet.cssRules || []
+        );
+
+
+      for(const rule of rules){
+
+        /*
+         * 跳过 @media print
+         */
+
+        if(
+          rule.type ===
+          CSSRule.MEDIA_RULE
+        ){
+
+          if(
+            String(
+              rule.conditionText || ""
+            )
+            .toLowerCase()
+            .includes("print")
+          ){
+
+            continue;
+
+          }
+
+
+          css +=
+            rule.cssText +
+            "\n";
+
+          continue;
+
         }
 
-        return `
-          <link
-            rel="stylesheet"
-            href="${escapeHTML(href)}"
-          >
-        `;
+
+        css +=
+          rule.cssText +
+          "\n";
 
       }
-    )
-    .join("\n");
+
+    }catch(error){
+
+      /*
+       * 某些 stylesheet 可能因为浏览器安全策略
+       * 无法读取，忽略即可。
+       */
+
+      console.warn(
+        "读取stylesheet失败",
+        error
+      );
+
+    }
+
+  }
 
 
-  return styles;
+  return css;
 
 }
 
@@ -2259,10 +2110,32 @@ function getPrintCSS(){
 
   return `
 
-    html,
+    @page{
+
+      size:A4 portrait;
+
+      margin:0;
+
+    }
+
+
+    html{
+
+      margin:0 !important;
+
+      padding:0 !important;
+
+      width:210mm !important;
+
+      background:#fff !important;
+
+    }
+
+
     body{
 
       margin:0 !important;
+
       padding:0 !important;
 
       width:210mm !important;
@@ -2274,15 +2147,6 @@ function getPrintCSS(){
     }
 
 
-    @page{
-
-      size:A4 portrait;
-
-      margin:0;
-
-    }
-
-
     *{
 
       box-sizing:border-box;
@@ -2290,32 +2154,25 @@ function getPrintCSS(){
     }
 
 
-    body{
-
-      width:210mm;
-
-      background:#fff;
-
-    }
-
-
     /*
-     * 一个 print-page 就是一张纸。
+     * 关键：
      *
-     * 高度故意使用 296mm，
-     * 不使用 297mm。
+     * resume-page 本身就是打印页。
      *
-     * 这样可以给 Safari/WebKit 留出极小的
-     * 浮点计算余量，避免：
+     * 不再使用：
      *
-     * 297mm + page break
+     * print-page
+     *   └── print-inner
+     *       └── resume-page
      *
-     * 被计算成下一页。
+     * 避免嵌套高度导致浏览器额外分页。
      */
 
-    .print-page{
+    .resume-page.print-page{
 
-      position:relative;
+      position:relative !important;
+
+      display:block !important;
 
       width:210mm !important;
 
@@ -2331,7 +2188,7 @@ function getPrintCSS(){
 
       margin:0 !important;
 
-      padding:0 !important;
+      padding:52px 62px !important;
 
       overflow:hidden !important;
 
@@ -2341,20 +2198,60 @@ function getPrintCSS(){
 
       transform:none !important;
 
-      break-inside:avoid !important;
+      font-family:${fontFamily} !important;
+
+      font-size:${state.fontSize}px !important;
+
+      line-height:1.55 !important;
+
+      /*
+       * 只使用 page-break-after。
+       *
+       * 不同时使用 break-after，
+       * 降低 Safari/WebKit 双重分页解释的概率。
+       */
 
       page-break-inside:avoid !important;
-
-      break-after:page !important;
 
       page-break-after:always !important;
 
     }
 
 
-    .print-page:last-child{
+    /*
+     * 模板 padding
+     */
 
-      break-after:auto !important;
+    .resume-page.print-page.minimal{
+
+      padding:48px 58px !important;
+
+    }
+
+
+    .resume-page.print-page.stripe{
+
+      padding-left:58px !important;
+
+    }
+
+
+    .resume-page.print-page.page-one{
+
+      padding-top:43px !important;
+
+      padding-bottom:40px !important;
+
+      font-size:12px !important;
+
+    }
+
+
+    /*
+     * 最后一页不需要强制下一页。
+     */
+
+    .resume-page.print-page:last-child{
 
       page-break-after:auto !important;
 
@@ -2362,107 +2259,70 @@ function getPrintCSS(){
 
 
     /*
-     * 原来的 resume-page 是 794 × 1123px。
-     *
-     * 打印时我们让内部内容按照 A4 比例缩放到
-     * 296mm 的实际高度。
+     * 隐藏页码。
      */
 
-    .print-inner{
-
-      position:absolute;
-
-      left:0;
-
-      top:0;
-
-      width:210mm;
-
-      height:297mm;
-
-      transform:
-        scale(0.996633);
-
-      transform-origin:
-        top left;
-
-      overflow:hidden;
-
-      background:#fff;
-
-    }
-
-
-    /*
-     * 原有模板样式继续负责具体排版。
-     * 这里仅取消屏幕阴影、外部间距和缩放。
-     */
-
-    .print-inner .resume-page{
-
-      width:210mm !important;
-
-      height:297mm !important;
-
-      min-width:210mm !important;
-
-      max-width:210mm !important;
-
-      min-height:297mm !important;
-
-      max-height:297mm !important;
-
-      margin:0 !important;
-
-      box-shadow:none !important;
-
-      transform:none !important;
-
-      overflow:hidden !important;
-
-    }
-
-
-    .print-inner .page-number{
+    .resume-page.print-page
+    .page-number{
 
       display:none !important;
 
     }
 
 
-    img{
+    /*
+     * 防止内部 section 自己分页。
+     */
 
-      -webkit-print-color-adjust:
-        exact !important;
+    .resume-page.print-page
+    .resume-section{
 
-      print-color-adjust:
-        exact !important;
+      page-break-inside:avoid !important;
 
     }
 
 
-    .resume-page{
+    .resume-page.print-page
+    .resume-block{
 
-      -webkit-print-color-adjust:
-        exact !important;
+      page-break-inside:avoid !important;
 
-      print-color-adjust:
-        exact !important;
+    }
+
+
+    .resume-page.print-page
+    .resume-header{
+
+      page-break-inside:avoid !important;
+
+    }
+
+
+    img{
+
+      -webkit-print-color-adjust:exact !important;
+
+      print-color-adjust:exact !important;
+
+    }
+
+
+    .resume-page.print-page{
+
+      -webkit-print-color-adjust:exact !important;
+
+      print-color-adjust:exact !important;
 
     }
 
 
     /*
-     * 禁止打印页内部元素自行产生分页。
+     * 打印时取消纸张之间的任何外部间距。
      */
 
-    .resume-section,
-    .resume-block,
-    .resume-header{
+    .resume-page.print-page + .resume-page.print-page{
 
-      break-inside:avoid;
-
-      page-break-inside:avoid;
+      margin-top:0 !important;
 
     }
 
@@ -2472,7 +2332,7 @@ function getPrintCSS(){
 
 
 /* =========================================================
-   BUILD PRINT DOCUMENT
+   BUILD PRINT WINDOW
 ========================================================= */
 
 function buildPrintDocument(printWindow){
@@ -2497,8 +2357,12 @@ function buildPrintDocument(printWindow){
   }
 
 
-  const styleLinks =
-    getScreenStyles();
+  const screenCSS =
+    getScreenCSS();
+
+
+  const printCSS =
+    getPrintCSS();
 
 
   const pagesHTML =
@@ -2511,7 +2375,7 @@ function buildPrintDocument(printWindow){
 
 
           /*
-           * 打印页中不需要页码。
+           * 删除预览页码。
            */
 
           clone
@@ -2519,38 +2383,34 @@ function buildPrintDocument(printWindow){
               ".page-number"
             )
             .forEach(
-              node => node.remove()
+              node =>
+                node.remove()
             );
 
 
           /*
-           * 原来的 .resume-page 会受到
-           * 屏幕CSS影响。
+           * 保留原来的模板 class，
+           * 同时增加 print-page。
            *
-           * 外面增加 print-page，
-           * 里面使用 print-inner。
+           * 例如：
+           *
+           * resume-page tech
+           *
+           * 变成：
+           *
+           * resume-page tech print-page
            */
 
-          const html =
-            clone.outerHTML;
+          clone.classList.add(
+            "print-page"
+          );
 
 
-          return `
+          clone.dataset.page =
+            index + 1;
 
-            <div
-              class="print-page"
-              data-page="${index + 1}"
-            >
 
-              <div class="print-inner">
-
-                ${html}
-
-              </div>
-
-            </div>
-
-          `;
+          return clone.outerHTML;
 
         }
       )
@@ -2565,22 +2425,24 @@ function buildPrintDocument(printWindow){
 
 <head>
 
-  <meta
-    charset="UTF-8"
-  >
+  <meta charset="UTF-8">
 
   <meta
     name="viewport"
     content="width=device-width, initial-scale=1"
   >
 
-  <title>ResumeFlow - PDF</title>
-
-  ${styleLinks}
+  <title>ResumeFlow PDF</title>
 
   <style>
 
-    ${getPrintCSS()}
+    ${screenCSS}
+
+  </style>
+
+  <style>
+
+    ${printCSS}
 
   </style>
 
@@ -2597,13 +2459,26 @@ function buildPrintDocument(printWindow){
   `;
 
 
-  printWindow.document.open();
+  try{
 
-  printWindow.document.write(
-    html
-  );
+    printWindow.document.open();
 
-  printWindow.document.close();
+    printWindow.document.write(
+      html
+    );
+
+    printWindow.document.close();
+
+  }catch(error){
+
+    console.error(
+      "写入打印文档失败",
+      error
+    );
+
+    return false;
+
+  }
 
 
   return true;
@@ -2624,32 +2499,6 @@ async function waitPrintDocument(printWindow){
 
   const doc =
     printWindow.document;
-
-
-  /*
-   * 等待 DOM。
-   */
-
-  if(
-    doc.readyState !==
-    "complete"
-  ){
-
-    await new Promise(
-      resolve => {
-
-        printWindow.addEventListener(
-          "load",
-          resolve,
-          {
-            once:true
-          }
-        );
-
-      }
-    );
-
-  }
 
 
   /*
@@ -2687,6 +2536,7 @@ async function waitPrintDocument(printWindow){
                 }
               );
 
+
               image.addEventListener(
                 "error",
                 resolve,
@@ -2707,28 +2557,33 @@ async function waitPrintDocument(printWindow){
 
 
   /*
-   * 等一帧，让浏览器完成 layout。
+   * 等待浏览器完成 layout。
    */
 
   await new Promise(
-    resolve =>
+    resolve => {
+
       printWindow.requestAnimationFrame(
-        () =>
+        () => {
+
           printWindow.requestAnimationFrame(
             resolve
-          )
-      )
-  );
+          );
 
+        }
+      );
+
+    }
+  );
 
 }
 
 
 /* =========================================================
-   PRINT RESUME
+   PRINT
 ========================================================= */
 
-async function printResume(){
+function printResume(){
 
   if(!source.value.trim()){
 
@@ -2742,20 +2597,20 @@ async function printResume(){
 
 
   /*
-   * 先重新渲染。
+   * 重新渲染预览。
    */
 
   render();
 
 
   /*
-   * 关键：
+   * 极其重要：
    *
-   * window.open 必须发生在用户点击事件的同步阶段。
+   * window.open 必须直接发生在点击事件中。
    *
-   * 不要放进 setTimeout。
-   * 不要放进 await。
-   * 不要先等待 iframe。
+   * 不放进 setTimeout。
+   * 不放进 Promise。
+   * 不放进 await。
    */
 
   const printWindow =
@@ -2765,14 +2620,10 @@ async function printResume(){
     );
 
 
-  /*
-   * 如果浏览器拦截弹窗。
-   */
-
   if(!printWindow){
 
     alert(
-      "浏览器阻止了打印窗口。\n\n" +
+      "浏览器阻止了新窗口。\n\n" +
       "请允许 ResumeFlow 打开新窗口，然后再次点击「导出 PDF」。"
     );
 
@@ -2782,7 +2633,7 @@ async function printResume(){
 
 
   /*
-   * 先写入一个简单的加载页面。
+   * 先立即显示加载状态。
    */
 
   try{
@@ -2824,7 +2675,6 @@ async function printResume(){
   }catch(error){
 
     console.error(
-      "创建打印页面失败",
       error
     );
 
@@ -2842,7 +2692,8 @@ async function printResume(){
 
 
   /*
-   * 写入真正的打印文档。
+   * 使用当前已经分页好的 resume-page
+   * 构造独立打印页面。
    */
 
   const success =
@@ -2852,6 +2703,10 @@ async function printResume(){
 
 
   if(!success){
+
+    try{
+      printWindow.close();
+    }catch(_){}
 
     alert(
       "没有可打印的简历页面。"
@@ -2863,76 +2718,67 @@ async function printResume(){
 
 
   /*
-   * 等待资源。
-   */
-
-  try{
-
-    await waitPrintDocument(
-      printWindow
-    );
-
-  }catch(error){
-
-    console.warn(
-      "等待打印页面资源时出现异常",
-      error
-    );
-
-  }
-
-
-  /*
-   * 再次聚焦。
-   */
-
-  try{
-
-    printWindow.focus();
-
-  }catch(error){
-
-    console.warn(
-      error
-    );
-
-  }
-
-
-  /*
-   * 打印。
+   * 等待图片与 layout。
    *
-   * 这里不关闭窗口。
-   *
-   * Safari / Chrome 都保留独立打印页，
-   * 用户可以检查页面后再返回。
+   * 注意：
+   * window.open 已经在用户点击的同步阶段完成，
+   * 因此这里不会再触发 Chrome 的 Popup 阻止问题。
    */
 
-  try{
+  waitPrintDocument(
+    printWindow
+  )
+  .then(
+    () => {
 
-    printWindow.print();
+      try{
 
-  }catch(error){
+        printWindow.focus();
 
-    console.error(
-      "打印调用失败",
-      error
-    );
+        printWindow.print();
+
+      }catch(error){
+
+        console.error(
+          "打印失败",
+          error
+        );
 
 
-    /*
-     * 如果浏览器没有自动弹出打印对话框，
-     * 打印页面仍然存在。
-     *
-     * 用户可以在新窗口中手动执行打印。
-     */
+        alert(
+          "打印窗口已经打开，但浏览器没有自动弹出打印界面。\n\n" +
+          "请在新窗口中手动选择打印。"
+        );
 
-    alert(
-      "打印窗口已经打开，但浏览器没有自动弹出打印对话框。\n\n" +
-      "请在新打开的 ResumeFlow PDF 页面中手动选择「打印」。"
-    );
+      }
 
-  }
+    }
+  )
+  .catch(
+    error => {
+
+      console.warn(
+        "等待打印资源失败",
+        error
+      );
+
+
+      try{
+
+        printWindow.focus();
+
+        printWindow.print();
+
+      }catch(printError){
+
+        console.error(
+          printError
+        );
+
+      }
+
+    }
+  );
 
 }
 
@@ -2974,19 +2820,6 @@ if(pdfBtn){
   pdfBtn.addEventListener(
     "click",
     () => {
-
-      /*
-       * 注意：
-       * 这里直接调用。
-       *
-       * 不使用：
-       *
-       * setTimeout
-       * Promise.then
-       * iframe
-       *
-       * window.open 必须保留在用户手势链路中。
-       */
 
       printResume();
 
@@ -3041,7 +2874,7 @@ if(clearBtn){
 
 
 /*
- * FILE BUTTON
+ * FILE
  */
 
 if(fileBtn){
@@ -3421,7 +3254,7 @@ if(
 
       navigator.serviceWorker
         .register(
-          "./sw.js?v=1.4.0"
+          "./sw.js?v=1.4.1"
         )
         .catch(
           error => {
