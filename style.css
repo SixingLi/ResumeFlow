@@ -423,8 +423,7 @@ textarea:focus{
 
 
 /* =========================================================
-   IMPORTANT
-   多页预览容器
+   PREVIEW STACK
 ========================================================= */
 
 #paper.preview-stack{
@@ -882,31 +881,39 @@ textarea:focus{
 
 /* =========================================================
    PRINT / PDF
-   Safari PDF 分页专用规则
-   注意：不改变屏幕预览的 A4 尺寸
+   仅控制 PDF 输出，不改变屏幕 A4 预览
 ========================================================= */
 
 @media print{
 
   html,
   body{
+
     margin:0 !important;
     padding:0 !important;
 
+    width:210mm !important;
+
     background:#fff !important;
+
   }
 
   body{
-    width:210mm !important;
+
+    overflow:visible !important;
+
   }
 
   .top,
   .left,
   .right{
+
     display:none !important;
+
   }
 
   .main{
+
     display:block !important;
 
     width:210mm !important;
@@ -916,9 +923,11 @@ textarea:focus{
     margin:0 !important;
 
     padding:0 !important;
+
   }
 
   .center{
+
     display:block !important;
 
     width:210mm !important;
@@ -927,16 +936,19 @@ textarea:focus{
 
     min-height:0 !important;
 
+    height:auto !important;
+
     margin:0 !important;
 
     padding:0 !important;
 
     overflow:visible !important;
+
   }
 
   /*
-   * 关键：
-   * 打印时不再把 preview-stack 当成屏幕上的 flex A4 堆叠容器。
+   * 打印时完全取消屏幕 preview-stack 的 flex、
+   * gap 和缩放。
    */
   #paper.preview-stack{
 
@@ -963,24 +975,26 @@ textarea:focus{
   }
 
   /*
-   * 关键：
-   * 屏幕预览仍然保持 794 × 1123px。
-   * 只有打印时取消固定物理高度，避免 Safari 将一个逻辑页
-   * 判定为“超过当前打印页”后自动产生空白续页。
+   * 每一个 JS 已经生成好的逻辑页，
+   * 在打印时对应一个物理 A4 页。
+   *
+   * 这里故意使用 295mm，而不是 296/297mm。
+   * 给 Safari 的分页引擎留下约 2mm 安全空间，
+   * 避免最后一个页面被判定为“超出页面”。
    */
   .resume-page{
 
     width:210mm !important;
 
+    height:295mm !important;
+
     min-width:210mm !important;
 
     max-width:210mm !important;
 
-    height:auto !important;
+    min-height:295mm !important;
 
-    min-height:0 !important;
-
-    max-height:none !important;
+    max-height:295mm !important;
 
     flex:none !important;
 
@@ -992,7 +1006,7 @@ textarea:focus{
 
     margin:0 !important;
 
-    overflow:visible !important;
+    overflow:hidden !important;
 
     transform:none !important;
 
@@ -1000,6 +1014,9 @@ textarea:focus{
 
     box-shadow:none !important;
 
+    /*
+     * 禁止一个逻辑页自身再被 Safari 拆成两页。
+     */
     break-inside:avoid !important;
 
     page-break-inside:avoid !important;
@@ -1007,11 +1024,10 @@ textarea:focus{
   }
 
   /*
-   * 每一个已经由 JS 分好的逻辑页，
-   * 从第二页开始强制从新的物理 PDF 页开始。
+   * 每个逻辑页从新的物理 PDF 页开始。
    *
    * 第一页不设置 break-before，
-   * 避免 Safari 在第一页前面插入空白页。
+   * 后续页面才设置。
    */
   .resume-page + .resume-page{
 
@@ -1022,8 +1038,9 @@ textarea:focus{
   }
 
   /*
-   * 打印时重新使用与当前预览一致的页边距。
-   * 不修改屏幕预览。
+   * 打印页边距。
+   *
+   * 注意这里的 padding 不影响屏幕预览。
    */
   .resume-page{
 
@@ -1052,9 +1069,7 @@ textarea:focus{
   }
 
   /*
-   * 页面编号仍然保留。
-   * 因为打印页不再使用固定高度，所以页码定位
-   * 由实际打印页面中的内容区域决定。
+   * 页面编号。
    */
   .page-number{
 
@@ -1070,7 +1085,7 @@ textarea:focus{
 
 
 /* =========================================================
-   PRINT PAGE
+   PDF PAPER
 ========================================================= */
 
 @page{
