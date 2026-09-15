@@ -3300,20 +3300,46 @@ function render() {
     );
   }
 
+
+
   /* =======================================================
      PRINT STYLE
+     V1.3.7
+
+     修复 Chrome / Safari PDF 空白页问题
+
+     原问题：
+     - resume-page = 297mm
+     - 同时使用 break-after: page
+     - 同时使用 page-break-after: always
+     - 浏览器可能将固定高度页面再次分页
+     - 最终出现：
+         第1页
+         空白页
+         第2页
+         空白页
+         第3页
+
+     新策略：
+     - JS 负责决定第几页
+     - CSS 只负责把第2页以后放到下一张纸
+     - 不使用 break-after
+     - 不使用 page-break-after
+     - resume-page 打印高度使用 296mm
+       给浏览器分页计算留出少量余量
   ======================================================= */
 
   function installPrintStyle() {
 
     const old =
       document.getElementById(
-        "resumeflow-print-v130"
+        "resumeflow-print-v137"
       );
 
     if (old) {
       old.remove();
     }
+
 
     const style =
       document.createElement(
@@ -3321,24 +3347,40 @@ function render() {
       );
 
     style.id =
-      "resumeflow-print-v130";
+      "resumeflow-print-v137";
+
 
     style.textContent = `
 
+      /* =================================================
+         A4
+      ================================================= */
+
+      @page {
+
+        size: A4;
+
+        margin: 0;
+
+      }
+
+
+      /* =================================================
+         PRINT
+      ================================================= */
+
       @media print {
 
-        @page {
-
-          size: A4;
-
-          margin: 0;
-
-        }
+        /* ---------------------------------------------
+           页面基础
+        --------------------------------------------- */
 
         html,
         body {
 
           width: 210mm !important;
+
+          min-width: 210mm !important;
 
           margin: 0 !important;
 
@@ -3346,7 +3388,14 @@ function render() {
 
           background: #fff !important;
 
+          overflow: visible !important;
+
         }
+
+
+        /* ---------------------------------------------
+           隐藏编辑器 UI
+        --------------------------------------------- */
 
         .top,
         .left,
@@ -3356,11 +3405,20 @@ function render() {
 
         }
 
+
+        /* ---------------------------------------------
+           主布局
+        --------------------------------------------- */
+
         .main {
 
           display: block !important;
 
           width: 210mm !important;
+
+          min-width: 210mm !important;
+
+          height: auto !important;
 
           min-height: 0 !important;
 
@@ -3369,6 +3427,7 @@ function render() {
           padding: 0 !important;
 
         }
+
 
         .center {
 
@@ -3376,57 +3435,131 @@ function render() {
 
           width: 210mm !important;
 
-          padding: 0 !important;
+          min-width: 210mm !important;
+
+          height: auto !important;
+
+          min-height: 0 !important;
 
           margin: 0 !important;
+
+          padding: 0 !important;
 
           overflow: visible !important;
 
         }
 
-        #paper {
 
-          transform: none !important;
-
-        }
+        /* =================================================
+           一页 / 两页模式
+        ================================================= */
 
         #paper:not(.preview-stack) {
 
           width: 210mm !important;
 
+          min-width: 210mm !important;
+
+          height: auto !important;
+
           min-height: 297mm !important;
 
           margin: 0 !important;
 
-          padding:
-            13mm 15mm !important;
+          padding: 13mm 15mm !important;
 
-          box-sizing:
-            border-box !important;
+          box-sizing: border-box !important;
 
-          box-shadow:
-            none !important;
+          transform: none !important;
+
+          box-shadow: none !important;
+
+          background: #fff !important;
 
           font-size:
             var(--resume-font-size, 13px)
             !important;
 
-          line-height:
-            1.55 !important;
+          line-height: 1.55 !important;
 
         }
 
+
+        /* =================================================
+           自动分页模式
+
+           #paper
+             ├── resume-page 1
+             ├── resume-page 2
+             └── resume-page 3
+        ================================================= */
+
         #paper.preview-stack {
+
+          display: block !important;
 
           width: 210mm !important;
 
-          min-height: 0 !important;
+          min-width: 210mm !important;
 
           height: auto !important;
+
+          min-height: 0 !important;
 
           margin: 0 !important;
 
           padding: 0 !important;
+
+          transform: none !important;
+
+          background: #fff !important;
+
+          box-shadow: none !important;
+
+          overflow: visible !important;
+
+        }
+
+
+        /* =================================================
+           每一张真正的 A4 页面
+
+           重要：
+
+           不使用：
+             break-after
+             page-break-after
+
+           只使用：
+             第2页以后 break-before
+        ================================================= */
+
+        #paper.preview-stack
+        > .resume-page {
+
+          display: block !important;
+
+          width: 210mm !important;
+
+          height: 296mm !important;
+
+          min-width: 210mm !important;
+
+          min-height: 296mm !important;
+
+          max-width: 210mm !important;
+
+          max-height: 296mm !important;
+
+          box-sizing: border-box !important;
+
+          margin: 0 !important;
+
+          padding: 13mm 15mm !important;
+
+          position: relative !important;
+
+          overflow: hidden !important;
 
           background: #fff !important;
 
@@ -3434,89 +3567,180 @@ function render() {
 
           transform: none !important;
 
-        }
-
-        #paper.preview-stack
-        > .resume-page {
-
-          width: 210mm !important;
-
-          height: 297mm !important;
-
-          min-height: 297mm !important;
-
-          max-height: 297mm !important;
-
-          margin: 0 !important;
-
-          padding:
-            13mm 15mm !important;
-
-          box-sizing:
-            border-box !important;
-
-          box-shadow:
-            none !important;
-
-          overflow: hidden !important;
-
-          break-after: page;
-
-          page-break-after: always;
-
           font-size:
             var(--resume-font-size, 13px)
             !important;
 
-          line-height:
-            1.55 !important;
+          line-height: 1.55 !important;
+
+          /*
+           * 明确取消所有 after 分页
+           */
+
+          break-after: auto !important;
+
+          page-break-after: auto !important;
 
         }
+
+
+        /* =================================================
+           第2页开始：
+
+           只有这里主动告诉浏览器：
+
+           「我要新的一张纸」
+        ================================================= */
+
+        #paper.preview-stack
+        > .resume-page:not(:first-child) {
+
+          break-before: page !important;
+
+          page-break-before: always !important;
+
+        }
+
+
+        /* =================================================
+           最后一页：
+
+           明确禁止 after 分页
+        ================================================= */
 
         #paper.preview-stack
         > .resume-page:last-child {
 
-          break-after: auto;
+          break-after: auto !important;
 
-          page-break-after: auto;
-
-        }
-
-        #paper .section-title {
-
-          break-after:
-            avoid !important;
+          page-break-after: auto !important;
 
         }
 
-        #paper .item-head {
 
-          break-after:
-            avoid !important;
+        /* =================================================
+           模板 padding
 
-          break-inside:
-            avoid !important;
+           保持 V1.3 原来的视觉尺寸
+        ================================================= */
 
-        }
+        #paper.preview-stack
+        > .resume-page.tech {
 
-        #paper li {
-
-          break-inside:
-            avoid !important;
+          padding:
+            13mm 15mm !important;
 
         }
 
-        #paper .resume-photo {
 
-          print-color-adjust:
-            exact !important;
+        #paper.preview-stack
+        > .resume-page.minimal {
 
-          -webkit-print-color-adjust:
-            exact !important;
+          padding:
+            12mm 14mm !important;
+
+        }
+
+
+        #paper.preview-stack
+        > .resume-page.stripe {
+
+          padding-top:
+            13mm !important;
+
+          padding-right:
+            15mm !important;
+
+          padding-bottom:
+            13mm !important;
+
+          padding-left:
+            14.5mm !important;
+
+        }
+
+
+        #paper.preview-stack
+        > .resume-page.blue,
+        #paper.preview-stack
+        > .resume-page.terminal,
+        #paper.preview-stack
+        > .resume-page.grayblue,
+        #paper.preview-stack
+        > .resume-page.business,
+        #paper.preview-stack
+        > .resume-page.photo {
+
+          padding:
+            13mm 15mm !important;
+
+        }
+
+
+        /* =================================================
+           防止内容内部产生额外分页
+        ================================================= */
+
+        #paper.preview-stack
+        .section-title {
+
+          break-after: avoid !important;
+
+          page-break-after: avoid !important;
+
+        }
+
+
+        #paper.preview-stack
+        .item-head {
+
+          break-after: avoid !important;
+
+          page-break-after: avoid !important;
+
+          break-inside: avoid !important;
+
+          page-break-inside: avoid !important;
+
+        }
+
+
+        #paper.preview-stack
+        li {
+
+          break-inside: avoid !important;
+
+          page-break-inside: avoid !important;
+
+        }
+
+
+        /* =================================================
+           证件照
+        ================================================= */
+
+        #paper.preview-stack
+        .resume-photo {
+
+          print-color-adjust: exact !important;
+
+          -webkit-print-color-adjust: exact !important;
 
         }
 
       }
+
+    `;
+
+
+    document.head.appendChild(
+      style
+    );
+
+  }
+
+
+
 
     `;
 
