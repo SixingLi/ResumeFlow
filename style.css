@@ -1,75 +1,47 @@
 :root{
-
   --bg:#f3f5f7;
-
   --panel:#fff;
-
   --text:#151a1e;
-
   --muted:#68727b;
-
   --line:#dfe4e8;
 
-  --accent:#111;
-
-  --accent-soft:#f0f3f5;
+  --accent:#17365D;
+  --accent-soft:#eef4fa;
 
   --paper-w:794px;
-
   --paper-h:1123px;
-
 }
 
 *{
-
   box-sizing:border-box;
-
 }
 
 html,
-
 body{
-
   margin:0;
-
   padding:0;
-
 }
 
 body{
-
   font-family:
-
     -apple-system,
-
     BlinkMacSystemFont,
-
     "PingFang SC",
-
     "Microsoft YaHei",
-
     sans-serif;
 
   color:var(--text);
-
   background:var(--bg);
-
 }
 
 button,
-
 textarea,
-
 input,
-
 select{
-
   font:inherit;
-
 }
 
 button{
-
   cursor:pointer;
 
   border:1px solid var(--line);
@@ -79,45 +51,37 @@ button{
   border-radius:8px;
 
   padding:8px 12px;
-
 }
 
 button.primary{
-
   background:#111;
-
   color:#fff;
-
   border-color:#111;
-
 }
 
 button:disabled{
-
   opacity:.45;
-
   cursor:not-allowed;
-
 }
 
-/* =========================
 
-   顶部导航
-
-========================= */
+/* =========================================================
+   APP
+========================================================= */
 
 .app{
-
   min-height:100vh;
 
   display:flex;
-
   flex-direction:column;
-
 }
 
-.top{
 
+/* =========================================================
+   TOP
+========================================================= */
+
+.top{
   height:58px;
 
   background:#fff;
@@ -125,7 +89,6 @@ button:disabled{
   border-bottom:1px solid var(--line);
 
   display:flex;
-
   align-items:center;
 
   padding:0 18px;
@@ -133,111 +96,75 @@ button:disabled{
   gap:14px;
 
   position:sticky;
-
   top:0;
 
-  z-index:5;
-
+  z-index:10;
 }
 
 .brand{
-
   font-weight:800;
-
   font-size:18px;
-
 }
 
 .brand span{
-
   font-weight:400;
-
   color:#9aa1a7;
-
 }
 
 .top .spacer{
-
   flex:1;
-
 }
 
 .save{
-
   color:#68727b;
-
   font-size:12px;
-
 }
 
-/* =========================
 
-   主体三栏
-
-========================= */
+/* =========================================================
+   MAIN
+========================================================= */
 
 .main{
-
   display:grid;
 
   grid-template-columns:
-
     300px
-
     minmax(520px,1fr)
-
     270px;
 
   min-height:calc(100vh - 58px);
-
 }
 
 .left,
-
 .right{
-
   background:#fff;
-
   padding:18px;
-
   border-right:1px solid var(--line);
-
 }
 
 .right{
-
   border-right:0;
-
   border-left:1px solid var(--line);
-
 }
 
 h3{
-
   font-size:13px;
-
   margin:5px 0 12px;
-
 }
 
 .hint{
-
   font-size:12px;
-
   color:var(--muted);
-
   line-height:1.6;
-
 }
 
-/* =========================
 
-   文件导入
-
-========================= */
+/* =========================================================
+   DROP
+========================================================= */
 
 .drop{
-
   border:1.5px dashed #b7bec4;
 
   border-radius:11px;
@@ -249,25 +176,19 @@ h3{
   margin-bottom:14px;
 
   background:#fafbfc;
-
 }
 
 .drop.drag{
-
   border-color:var(--accent);
-
   background:var(--accent-soft);
-
 }
 
-/* =========================
 
-   Markdown 输入
-
-========================= */
+/* =========================================================
+   TEXTAREA
+========================================================= */
 
 textarea{
-
   width:100%;
 
   height:390px;
@@ -285,39 +206,35 @@ textarea{
   font-size:13px;
 
   outline:none;
-
 }
 
 textarea:focus{
-
   border-color:#8c969e;
-
 }
 
 .actions{
-
   display:flex;
-
   gap:8px;
-
   margin-top:9px;
-
 }
 
 .actions button{
-
   flex:1;
-
 }
 
-/* =========================
+.footer-note{
+  font-size:11px;
+  color:#999;
+  line-height:1.5;
+  margin-top:18px;
+}
 
-   证件照
 
-========================= */
+/* =========================================================
+   PHOTO
+========================================================= */
 
 .photo-panel{
-
   border:1px solid var(--line);
 
   border-radius:10px;
@@ -325,23 +242,18 @@ textarea:focus{
   padding:10px;
 
   margin-bottom:14px;
-
 }
 
 .photo-row{
-
   display:flex;
 
   align-items:center;
 
   gap:10px;
-
 }
 
 .photo-preview{
-
   width:58px;
-
   height:76px;
 
   border:1px dashed #b7bec4;
@@ -351,7 +263,6 @@ textarea:focus{
   display:flex;
 
   align-items:center;
-
   justify-content:center;
 
   color:#a0a7ad;
@@ -361,135 +272,94 @@ textarea:focus{
   overflow:hidden;
 
   background:#fafafa;
-
 }
 
 .photo-preview img{
-
   width:100%;
-
   height:100%;
-
   object-fit:cover;
-
 }
 
 .photo-actions{
-
   display:flex;
-
   gap:6px;
-
   flex-wrap:wrap;
-
 }
 
 .photo-actions button{
-
   font-size:12px;
-
 }
 
 .photo-note{
-
   font-size:10px;
-
   color:#999;
-
   margin-top:7px;
-
 }
 
-/* =========================
 
-   模板选择
-
-========================= */
+/* =========================================================
+   TEMPLATE
+========================================================= */
 
 .template{
-
   display:grid;
 
   grid-template-columns:
-
     1fr
-
     1fr;
 
   gap:7px;
 
   margin-bottom:17px;
-
 }
 
 .template button{
-
   font-size:12px;
-
   padding:8px 5px;
-
 }
 
 .template button.active{
-
   background:var(--accent);
-
   color:#fff;
-
   border-color:var(--accent);
-
 }
 
-/* =========================
 
-   主题色
-
-========================= */
+/* =========================================================
+   THEMES
+========================================================= */
 
 .themes{
-
   display:grid;
 
   grid-template-columns:
-
     1fr
-
     1fr;
 
   gap:7px;
 
   margin-bottom:18px;
-
 }
 
 .theme{
-
   font-size:12px;
-
 }
 
 .theme.active{
-
   outline:2px solid var(--accent);
-
   outline-offset:1px;
-
 }
 
-/* =========================
 
-   控制器
-
-========================= */
+/* =========================================================
+   CONTROLS
+========================================================= */
 
 .control{
-
   margin-bottom:17px;
-
 }
 
 .control label{
-
   display:block;
 
   font-size:12px;
@@ -497,13 +367,10 @@ textarea:focus{
   color:#555;
 
   margin-bottom:7px;
-
 }
 
 .control input,
-
 .control select{
-
   width:100%;
 
   padding:7px;
@@ -513,55 +380,34 @@ textarea:focus{
   border-radius:8px;
 
   background:#fff;
-
 }
 
 .range{
-
   display:flex;
 
   gap:8px;
 
   align-items:center;
-
 }
 
 .range input{
-
   flex:1;
-
 }
 
 .range span{
-
   font-size:11px;
 
   color:#777;
 
   width:38px;
-
 }
 
-.footer-note{
 
-  font-size:11px;
-
-  color:#999;
-
-  line-height:1.5;
-
-  margin-top:18px;
-
-}
-
-/* =========================
-
-   A4 预览区域
-
-========================= */
+/* =========================================================
+   CENTER
+========================================================= */
 
 .center{
-
   overflow:auto;
 
   padding:28px;
@@ -572,25 +418,66 @@ textarea:focus{
 
   align-items:flex-start;
 
+  min-width:0;
 }
 
-/* =========================
 
-   A4 简历
+/* =========================================================
+   IMPORTANT
+   多页预览容器
+========================================================= */
 
-========================= */
+#paper.preview-stack{
 
-.paper{
+  width:794px;
 
-  width:var(--paper-w);
+  min-height:0;
 
-  min-height:var(--paper-h);
+  padding:0;
+
+  background:transparent;
+
+  box-shadow:none;
+
+  position:relative;
+
+  display:flex;
+
+  flex-direction:column;
+
+  align-items:center;
+
+  gap:24px;
+
+  transform-origin:top center;
+
+}
+
+
+/* =========================================================
+   A4 PAGE
+========================================================= */
+
+.resume-page{
+
+  width:794px !important;
+  height:1123px !important;
+
+  min-width:794px !important;
+  max-width:794px !important;
+
+  min-height:1123px !important;
+  max-height:1123px !important;
+
+  flex:0 0 1123px !important;
+
+  position:relative;
+
+  overflow:hidden;
+
+  box-sizing:border-box;
 
   background:#fff;
-
-  box-shadow:
-
-    0 8px 30px #00000012;
 
   padding:52px 62px;
 
@@ -598,20 +485,20 @@ textarea:focus{
 
   line-height:1.55;
 
-  transform-origin:top center;
+  color:var(--text);
 
-  position:relative;
+  box-shadow:
+    0 8px 30px #00000012;
 
+  margin:0 !important;
 }
 
-/* =========================
 
-   简历头部
-
-========================= */
+/* =========================================================
+   HEADER
+========================================================= */
 
 .paper-header{
-
   display:flex;
 
   justify-content:space-between;
@@ -619,19 +506,14 @@ textarea:focus{
   gap:24px;
 
   align-items:flex-start;
-
 }
 
 .identity{
-
   min-width:0;
-
   flex:1;
-
 }
 
 .paper .name{
-
   font-size:30px;
 
   font-weight:800;
@@ -639,21 +521,17 @@ textarea:focus{
   letter-spacing:.02em;
 
   margin-bottom:4px;
-
 }
 
 .paper .title{
-
   font-size:15px;
 
   color:#4d5961;
 
   margin-bottom:7px;
-
 }
 
 .paper .contact{
-
   font-size:11px;
 
   color:#68727b;
@@ -661,19 +539,15 @@ textarea:focus{
   margin-bottom:18px;
 
   line-height:1.6;
-
 }
 
-/* =========================
 
-   简历照片
-
-========================= */
+/* =========================================================
+   PHOTO
+========================================================= */
 
 .resume-photo{
-
   width:82px;
-
   height:108px;
 
   border:1px solid #d8dde1;
@@ -681,35 +555,26 @@ textarea:focus{
   flex:none;
 
   overflow:hidden;
-
 }
 
 .resume-photo img{
-
   width:100%;
-
   height:100%;
-
   object-fit:cover;
-
 }
 
-/* =========================
 
-   简历章节
-
-========================= */
+/* =========================================================
+   SECTION
+========================================================= */
 
 .section{
-
   margin-top:17px;
 
-  break-inside:auto;
-
+  min-width:0;
 }
 
 .section-title{
-
   font-size:13px;
 
   font-weight:800;
@@ -723,101 +588,70 @@ textarea:focus{
   padding-bottom:5px;
 
   margin-bottom:9px;
-
-  break-after:avoid;
-
 }
 
 .section-body{
-
   min-width:0;
-
 }
 
 .item-head{
-
   font-weight:700;
 
   margin:3px 0 5px;
-
-  break-after:avoid;
-
 }
 
 .section ul{
-
   margin:5px 0 10px;
 
   padding-left:19px;
-
 }
 
 .section li{
-
   margin:2px 0 4px;
 
   line-height:1.58;
-
-  break-inside:avoid;
-
 }
 
-.item-head{
-
-  break-inside:avoid;
-
+.paragraph{
+  margin:4px 0 8px;
 }
 
-/* =========================
 
-   模板 1：技术经典
+/* =========================================================
+   TECH
+========================================================= */
 
-========================= */
-
-.paper.tech{
-
+.resume-page.tech{
   border-top:4px solid var(--accent);
-
 }
 
-/* =========================
 
-   模板 2：工程师蓝
+/* =========================================================
+   BLUE
+========================================================= */
 
-========================= */
-
-.paper.blue .section-title{
-
+.resume-page.blue .section-title{
   border-bottom-width:2px;
-
 }
 
-.paper.blue .name{
-
+.resume-page.blue .name{
   color:var(--accent);
-
 }
 
-/* =========================
 
-   模板 3：极简黑白
+/* =========================================================
+   MINIMAL
+========================================================= */
 
-========================= */
-
-.paper.minimal{
-
+.resume-page.minimal{
   padding:48px 58px;
-
 }
 
-.paper.minimal .name{
-
+.resume-page.minimal .name{
   font-size:29px;
-
 }
 
-.paper.minimal .section-title{
-
+.resume-page.minimal .section-title{
   border:0;
 
   padding:0;
@@ -825,53 +659,37 @@ textarea:focus{
   letter-spacing:.13em;
 
   color:var(--accent);
-
 }
 
-.paper.minimal .contact{
-
+.resume-page.minimal .contact{
   border-bottom:1px solid var(--line);
 
   padding-bottom:14px;
-
 }
 
-/* =========================
 
-   模板 4：代码终端
+/* =========================================================
+   TERMINAL
+========================================================= */
 
-========================= */
-
-.paper.terminal{
-
+.resume-page.terminal{
   font-family:
-
     "SFMono-Regular",
-
     Consolas,
-
     "Liberation Mono",
-
     "PingFang SC",
-
     monospace;
-
 }
 
-.paper.terminal .name{
-
+.resume-page.terminal .name{
   font-size:27px;
-
 }
 
-.paper.terminal .title{
-
+.resume-page.terminal .title{
   color:var(--accent);
-
 }
 
-.paper.terminal .section-title{
-
+.resume-page.terminal .section-title{
   border-bottom:0;
 
   background:var(--accent);
@@ -883,73 +701,56 @@ textarea:focus{
   display:inline-block;
 
   letter-spacing:.04em;
-
 }
 
-/* =========================
 
-   模板 5：科技灰蓝
+/* =========================================================
+   GRAY BLUE
+========================================================= */
 
-========================= */
-
-.paper.grayblue .section-title{
-
+.resume-page.grayblue .section-title{
   color:#40576b;
 
   border-bottom-color:#8fa0ad;
-
 }
 
-.paper.grayblue .name{
-
+.resume-page.grayblue .name{
   color:#253746;
-
 }
 
-/* =========================
 
-   模板 6：左侧色带
+/* =========================================================
+   STRIPE
+========================================================= */
 
-========================= */
+.resume-page.stripe{
+  padding-left:58px;
+}
 
-.paper.stripe:before{
-
+.resume-page.stripe::before{
   content:"";
 
   position:absolute;
 
   left:0;
-
   top:0;
-
   bottom:0;
 
   width:8px;
 
   background:var(--accent);
-
 }
 
-.paper.stripe{
 
-  padding-left:58px;
+/* =========================================================
+   BUSINESS
+========================================================= */
 
-}
-
-/* =========================
-
-   模板 7：商务技术
-
-========================= */
-
-.paper.business .name{
-
+.resume-page.business .name{
   font-weight:700;
-
 }
 
-.paper.business .section-title{
-
+.resume-page.business .section-title{
   border-bottom:2px solid var(--accent);
 
   font-size:12px;
@@ -957,267 +758,285 @@ textarea:focus{
   letter-spacing:.16em;
 
   padding-bottom:7px;
-
 }
 
-/* =========================
 
-   模板 8：证件照技术
+/* =========================================================
+   PHOTO TEMPLATE
+========================================================= */
 
-========================= */
-
-.paper.photo .resume-photo{
-
+.resume-page.photo .resume-photo{
   width:92px;
-
   height:122px;
-
 }
 
-/* =========================
 
-   一页模式
+/* =========================================================
+   PAGE ONE
+========================================================= */
 
-========================= */
-
-.paper.page-one{
-
-  min-height:var(--paper-h);
-
+.resume-page.page-one{
   padding-top:43px;
-
   padding-bottom:40px;
 
-}
-
-.paper.page-one{
-
   font-size:12px;
-
 }
 
-.paper.page-one .section{
-
+.resume-page.page-one .section{
   margin-top:12px;
-
 }
 
-.paper.page-one .section li{
-
+.resume-page.page-one .section li{
   margin:1px 0 2px;
-
   line-height:1.45;
-
 }
 
-.paper.page-one .contact{
-
+.resume-page.page-one .contact{
   margin-bottom:12px;
-
 }
 
-.paper.page-one .name{
-
+.resume-page.page-one .name{
   font-size:28px;
-
 }
 
-/* =========================
 
-   两页模式
+/* =========================================================
+   PAGE TWO
+========================================================= */
 
-========================= */
-
-.paper.page-two{
-
-  min-height:calc(var(--paper-h) * 2);
-
-}
-
-.paper.page-two .section{
-
+.resume-page.page-two .section{
   margin-top:20px;
-
 }
 
-/* =========================
 
-   平板 / 小屏
+/* =========================================================
+   PAGE NUMBER
+========================================================= */
 
-========================= */
+.page-number{
+  position:absolute;
+
+  right:34px;
+  bottom:22px;
+
+  font-size:9px;
+
+  color:#9aa1a7;
+}
+
+
+/* =========================================================
+   MOBILE / TABLET
+========================================================= */
 
 @media(max-width:1050px){
 
   .main{
-
     grid-template-columns:
-
       270px
-
       1fr;
-
   }
 
   .right{
-
     display:none;
-
   }
 
 }
+
 
 @media(max-width:760px){
 
   .top{
-
     padding:0 12px;
-
   }
 
   .main{
-
     display:block;
-
   }
 
   .left{
-
     border-right:0;
 
     border-bottom:
-
       1px solid var(--line);
-
   }
 
   .center{
-
     padding:16px;
 
     min-height:70vh;
 
-  }
-
-  .paper{
-
-    transform:scale(.48);
-
-    margin-bottom:
-
-      calc(-.52 * var(--paper-h));
-
+    overflow:auto;
   }
 
   .left textarea{
-
     height:280px;
-
   }
 
   .top .save{
-
     display:none;
-
   }
 
 }
 
-/* =========================
 
-   PDF 打印
-
-========================= */
+/* =========================================================
+   PRINT / PDF
+========================================================= */
 
 @media print{
 
+  html,
   body{
+    margin:0 !important;
+    padding:0 !important;
 
-    background:#fff;
+    background:#fff !important;
+  }
 
+  body{
+    width:210mm !important;
   }
 
   .top,
-
   .left,
-
   .right{
-
     display:none !important;
-
   }
 
   .main{
+    display:block !important;
 
-    display:block;
+    min-height:0 !important;
 
+    width:210mm !important;
   }
 
   .center{
+    display:block !important;
 
-    padding:0;
+    padding:0 !important;
 
-    overflow:visible;
+    margin:0 !important;
 
+    width:210mm !important;
+
+    min-height:0 !important;
+
+    overflow:visible !important;
   }
 
-  .paper{
+  #paper.preview-stack{
 
-    box-shadow:none;
+    display:block !important;
 
-    margin:0;
+    width:210mm !important;
+
+    min-height:0 !important;
+
+    height:auto !important;
+
+    padding:0 !important;
+
+    margin:0 !important;
 
     transform:none !important;
 
-    width:210mm;
+    box-shadow:none !important;
 
-    min-height:297mm;
-
-    padding:15mm 15mm;
-
-    font-size:13px;
-
+    background:#fff !important;
   }
 
-  .paper.page-one{
+  /*
+    关键：
+    不再使用 297mm 固定高度。
+    留出约 1mm 安全余量，降低 Safari / Chrome
+    因小数像素造成额外空白页的概率。
+  */
 
-    font-size:11.5px;
+  .resume-page{
+
+    width:210mm !important;
+
+    height:296mm !important;
+
+    min-width:210mm !important;
+
+    max-width:210mm !important;
+
+    min-height:296mm !important;
+
+    max-height:296mm !important;
+
+    margin:0 !important;
 
     padding:
+      13.76mm
+      16.40mm !important;
 
-      11mm
+    box-shadow:none !important;
 
-      13mm;
+    overflow:hidden !important;
 
+    transform:none !important;
+
+    break-inside:avoid !important;
+
+    page-break-inside:avoid !important;
   }
 
-  .paper.page-two{
+  /*
+    只让第二页及之后“从新页开始”。
 
-    min-height:594mm;
+    不使用 break-after，
+    避免最后一页产生额外空白页。
+  */
 
+  .resume-page + .resume-page{
+
+    break-before:page !important;
+
+    page-break-before:always !important;
   }
 
-  .paper .section,
-
-  .section li,
-
-  .item-head{
-
-    break-inside:avoid;
-
+  .resume-page.stripe{
+    padding-left:15.35mm !important;
   }
 
-  .section-title{
-
-    break-after:avoid;
-
+  .resume-page.minimal{
+    padding:
+      12.70mm
+      15.35mm !important;
   }
 
-  @page{
-
-    size:A4;
-
-    margin:0;
-
+  .resume-page.page-one{
+    padding-top:11.38mm !important;
+    padding-bottom:10.58mm !important;
   }
 
+  .resume-page.page-one .section{
+    margin-top:12px;
+  }
+
+  .resume-page.page-one .section li{
+    margin:1px 0 2px;
+  }
+
+  .page-number{
+    display:block !important;
+
+    right:9mm !important;
+    bottom:6mm !important;
+  }
+
+}
+
+
+/* =========================================================
+   A4 PRINT PAGE
+========================================================= */
+
+@page{
+  size:A4;
+  margin:0;
 }
