@@ -1983,6 +1983,750 @@ function readPhoto(file){
 
 
 /* =========================================================
+   PRINT
+   独立打印 iframe
+========================================================= */
+
+
+/*
+  将当前页面中已经完成分页的 resume-page
+  克隆到独立 iframe。
+
+  重要：
+
+  预览：
+    #paper
+      └── .resume-page
+      └── .resume-page
+
+  打印：
+    iframe
+      └── .print-page
+      └── .print-page
+
+  打印引擎不再接触原来的 #paper，
+  从而避免 Safari 对预览页面进行二次分页。
+*/
+
+function createPrintFrame(){
+
+  const iframe =
+    document.createElement("iframe");
+
+
+  iframe.setAttribute(
+    "aria-hidden",
+    "true"
+  );
+
+
+  iframe.style.position =
+    "fixed";
+
+  iframe.style.right =
+    "0";
+
+  iframe.style.bottom =
+    "0";
+
+  iframe.style.width =
+    "0";
+
+  iframe.style.height =
+    "0";
+
+  iframe.style.border =
+    "0";
+
+  iframe.style.opacity =
+    "0";
+
+  iframe.style.pointerEvents =
+    "none";
+
+
+  iframe.src =
+    "about:blank";
+
+
+  document.body.appendChild(
+    iframe
+  );
+
+
+  return iframe;
+
+}
+
+
+/*
+  等待 iframe 内的图片加载完成。
+*/
+
+function waitForPrintImages(
+  doc
+){
+
+  const images =
+    Array.from(
+      doc.images || []
+    );
+
+
+  if(!images.length){
+
+    return Promise.resolve();
+
+  }
+
+
+  return Promise.all(
+    images.map(
+      image => {
+
+        if(image.complete){
+
+          return Promise.resolve();
+
+        }
+
+
+        return new Promise(
+          resolve => {
+
+            image.addEventListener(
+              "load",
+              resolve,
+              {
+                once:true
+              }
+            );
+
+            image.addEventListener(
+              "error",
+              resolve,
+              {
+                once:true
+              }
+            );
+
+          }
+        );
+
+      }
+    )
+  );
+
+}
+
+
+/*
+  等待字体加载。
+*/
+
+function waitForPrintFonts(
+  doc
+){
+
+  if(
+    doc.fonts &&
+    doc.fonts.ready
+  ){
+
+    return doc.fonts.ready.catch(
+      () => {}
+    );
+
+  }
+
+
+  return Promise.resolve();
+
+}
+
+
+/*
+  创建打印文档。
+*/
+
+async function preparePrintFrame(
+  iframe
+){
+
+  const printWindow =
+    iframe.contentWindow;
+
+  const printDocument =
+    printWindow.document;
+
+
+  /*
+    当前预览中的所有样式表复制到 iframe。
+    这样模板样式、字体、标题、照片等
+    都可以保持一致。
+  */
+
+  const styles =
+    Array.from(
+      document.querySelectorAll(
+        'link[rel="stylesheet"], style'
+      )
+    );
+
+
+  printDocument.open();
+
+
+  printDocument.write(`
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <meta charset="UTF-8">
+        <meta
+          name="viewport"
+          content="width=device-width,initial-scale=1"
+        >
+        <title>ResumeFlow PDF</title>
+      </head>
+
+      <body>
+        <div id="print-root"></div>
+      </body>
+    </html>
+  `);
+
+
+  printDocument.close();
+
+
+  /*
+    复制原页面 stylesheet。
+  */
+
+  for(
+    const styleNode
+    of styles
+  ){
+
+    if(
+      styleNode.tagName
+      === "LINK"
+    ){
+
+      const link =
+        printDocument.createElement(
+          "link"
+        );
+
+      link.rel =
+        "stylesheet";
+
+      link.href =
+        styleNode.href;
+
+      printDocument.head.appendChild(
+        link
+      );
+
+    }else{
+
+      const style =
+        printDocument.createElement(
+          "style"
+        );
+
+      style.textContent =
+        styleNode.textContent;
+
+      printDocument.head.appendChild(
+        style
+      );
+
+    }
+
+  }
+
+
+  /*
+    打印专用 CSS。
+
+    注意：
+
+    这里不再使用：
+      #paper
+      transform:scale()
+      preview-stack
+
+    每一个 .print-page 就是一张真正的 A4。
+  */
+
+  const printStyle =
+    printDocument.createElement(
+      "style"
+    );
+
+
+  printStyle.textContent = `
+
+    @page {
+      size: A4 portrait;
+      margin: 0;
+    }
+
+
+    html,
+    body {
+
+      margin: 0 !important;
+      padding: 0 !important;
+
+      width: 210mm !important;
+
+      background: white !important;
+
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+
+    }
+
+
+    body {
+
+      overflow: visible !important;
+
+      font-family:
+        ${getPrintFontFamily()} !important;
+
+      font-size:
+        ${Number(state.fontSize) || 13}px !important;
+
+    }
+
+
+    #print-root {
+
+      width: 210mm !important;
+
+      margin: 0 !important;
+      padding: 0 !important;
+
+    }
+
+
+    /*
+      每一个逻辑页面 = 一个物理 A4 页面。
+
+      使用固定 A4 尺寸，
+      但不使用原页面的 transform。
+    */
+
+    .print-page {
+
+      position: relative !important;
+
+      width: 210mm !important;
+      height: 297mm !important;
+
+      min-width: 210mm !important;
+      max-width: 210mm !important;
+
+      min-height: 297mm !important;
+      max-height: 297mm !important;
+
+      margin: 0 !important;
+
+      box-sizing: border-box !important;
+
+      overflow: hidden !important;
+
+      transform: none !important;
+
+      zoom: 1 !important;
+
+      break-inside: avoid !important;
+      page-break-inside: avoid !important;
+
+      break-after: page !important;
+      page-break-after: always !important;
+
+      box-shadow: none !important;
+
+      background: white !important;
+
+    }
+
+
+    /*
+      最后一页绝对不能产生额外分页。
+    */
+
+    .print-page:last-child {
+
+      break-after: auto !important;
+      page-break-after: auto !important;
+
+    }
+
+
+    /*
+      打印时取消 screen preview 的
+      某些可能影响布局的状态。
+    */
+
+    .print-page.page-one,
+    .print-page.page-two {
+
+      break-inside: avoid !important;
+
+    }
+
+
+    /*
+      不允许 iframe 自己产生横向滚动。
+    */
+
+    body,
+    #print-root {
+
+      overflow-x: hidden !important;
+
+    }
+
+
+    /*
+      图片必须按照原比例显示。
+    */
+
+    .print-page img {
+
+      max-width: 100%;
+
+    }
+
+  `;
+
+
+  printDocument.head.appendChild(
+    printStyle
+  );
+
+
+  /*
+    找到当前已经分页好的页面。
+  */
+
+  const sourcePages =
+    Array.from(
+      paper.querySelectorAll(
+        ".resume-page"
+      )
+    );
+
+
+  if(!sourcePages.length){
+
+    throw new Error(
+      "没有找到可打印的简历页面。"
+    );
+
+  }
+
+
+  const root =
+    printDocument.getElementById(
+      "print-root"
+    );
+
+
+  /*
+    克隆每一张逻辑 A4 页面。
+  */
+
+  sourcePages.forEach(
+    (sourcePage,index) => {
+
+      const page =
+        sourcePage.cloneNode(true);
+
+
+      page.classList.add(
+        "print-page"
+      );
+
+
+      /*
+        明确清除预览 transform。
+      */
+
+      page.style.transform =
+        "none";
+
+
+      page.style.zoom =
+        "1";
+
+
+      /*
+        不继承 preview-stack 的外层缩放。
+      */
+
+      page.style.margin =
+        "0";
+
+
+      /*
+        最后一页明确不分页。
+      */
+
+      if(
+        index ===
+        sourcePages.length - 1
+      ){
+
+        page.style.breakAfter =
+          "auto";
+
+        page.style.pageBreakAfter =
+          "auto";
+
+      }else{
+
+        page.style.breakAfter =
+          "page";
+
+        page.style.pageBreakAfter =
+          "always";
+
+      }
+
+
+      root.appendChild(
+        page
+      );
+
+    }
+  );
+
+
+  /*
+    等待 stylesheet / 图片 / 字体完成。
+  */
+
+  await waitForPrintImages(
+    printDocument
+  );
+
+  await waitForPrintFonts(
+    printDocument
+  );
+
+
+  /*
+    再等待两帧，让 Safari 完成布局。
+  */
+
+  await new Promise(
+    resolve => {
+
+      printWindow.requestAnimationFrame(
+        () => {
+
+          printWindow.requestAnimationFrame(
+            resolve
+          );
+
+        }
+      );
+
+    }
+  );
+
+}
+
+
+/*
+  获取当前字体设置。
+*/
+
+function getPrintFontFamily(){
+
+  const fontMap = {
+
+    pingfang:
+      '-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif',
+
+    yahei:
+      '"Microsoft YaHei","PingFang SC",sans-serif',
+
+    system:
+      'system-ui,-apple-system,BlinkMacSystemFont,sans-serif'
+
+  };
+
+
+  return (
+    fontMap[state.font]
+    || fontMap.pingfang
+  );
+
+}
+
+
+/*
+  执行打印。
+
+  打印完成后删除 iframe，
+  不污染当前页面。
+*/
+
+async function printResume(){
+
+  if(!source.value.trim()){
+
+    alert(
+      "请先导入或粘贴简历。"
+    );
+
+    return;
+
+  }
+
+
+  /*
+    先重新分页，确保：
+    - 内容是最新的
+    - 页码是最新的
+    - 模板是最新的
+    - 主题是最新的
+    - 照片是最新的
+  */
+
+  render();
+
+
+  /*
+    给当前预览一次布局时间。
+  */
+
+  await new Promise(
+    resolve =>
+      setTimeout(
+        resolve,
+        120
+      )
+  );
+
+
+  const iframe =
+    createPrintFrame();
+
+
+  try{
+
+    await preparePrintFrame(
+      iframe
+    );
+
+
+    const printWindow =
+      iframe.contentWindow;
+
+
+    /*
+      Safari / iOS Safari：
+      直接调用 iframe.contentWindow.print()
+      而不是 window.print()。
+    */
+
+    printWindow.focus();
+
+
+    /*
+      再给 Safari 一个极短的布局时间。
+    */
+
+    await new Promise(
+      resolve =>
+        setTimeout(
+          resolve,
+          80
+        )
+    );
+
+
+    printWindow.print();
+
+
+    /*
+      某些浏览器会在 print() 返回后
+      立即继续执行；
+      延迟清理，避免打印内容突然消失。
+    */
+
+    setTimeout(
+      () => {
+
+        if(
+          iframe &&
+          iframe.parentNode
+        ){
+
+          iframe.parentNode.removeChild(
+            iframe
+          );
+
+        }
+
+      },
+      1500
+    );
+
+
+  }catch(error){
+
+    console.error(
+      "PDF打印失败：",
+      error
+    );
+
+
+    if(
+      iframe &&
+      iframe.parentNode
+    ){
+
+      iframe.parentNode.removeChild(
+        iframe
+      );
+
+    }
+
+
+    /*
+      如果 iframe 打印失败，
+      回退到浏览器默认打印。
+    */
+
+    alert(
+      "打印准备失败，将尝试使用浏览器默认打印。"
+    );
+
+
+    setTimeout(
+      () => {
+
+        window.print();
+
+      },
+      100
+    );
+
+  }
+
+}
+
+
+/* =========================================================
    EVENTS
 ========================================================= */
 
@@ -2349,39 +3093,15 @@ source.addEventListener(
 );
 
 
-/* PDF */
+/* =========================================================
+   PDF
+========================================================= */
 
 pdfBtn.addEventListener(
   "click",
   () => {
 
-    if(!source.value.trim()){
-
-      alert(
-        "请先导入或粘贴简历。"
-      );
-
-      return;
-
-    }
-
-
-    render();
-
-
-    /*
-      给浏览器一点时间完成布局，
-      再调用打印。
-    */
-
-    setTimeout(
-      () => {
-
-        window.print();
-
-      },
-      180
-    );
+    printResume();
 
   }
 );
