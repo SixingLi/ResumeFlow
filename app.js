@@ -1194,23 +1194,22 @@ function installPaginationStyle() {
     }
 
 
+
+
     /* ==================================================
-       打印
-       V1.3.5
+       PRINT
+       V1.3.6
 
-       目标：
+       JS 已经完成分页：
 
-       1 个 resume-page
-       =
-       1 张 A4 纸
+       resume-page 1 = A4 第1页
+       resume-page 2 = A4 第2页
+       resume-page 3 = A4 第3页
 
-       防止：
+       打印阶段只负责：
+       一张 resume-page → 一张 A4
 
-       CSS A4
-       ↓
-       Safari 打印溢出
-       ↓
-       多出空白页
+       不让浏览器重新参与分页。
     ================================================== */
 
     @page {
@@ -1229,12 +1228,6 @@ function installPaginationStyle() {
 
         width: 210mm !important;
 
-        min-width: 210mm !important;
-
-        height: auto !important;
-
-        min-height: 0 !important;
-
         margin: 0 !important;
 
         padding: 0 !important;
@@ -1245,10 +1238,64 @@ function installPaginationStyle() {
 
 
       /*
-       * 打印时禁止预览缩放
+       * 隐藏应用 UI
+       */
+
+      .top,
+      .left,
+      .right {
+
+        display: none !important;
+
+      }
+
+
+      /*
+       * 中间区域不要再产生任何
+       * padding / flex / 滚动空间
+       */
+
+      .main {
+
+        display: block !important;
+
+        width: 210mm !important;
+
+        min-height: 0 !important;
+
+        margin: 0 !important;
+
+        padding: 0 !important;
+
+      }
+
+
+      .center {
+
+        display: block !important;
+
+        width: 210mm !important;
+
+        min-width: 210mm !important;
+
+        min-height: 0 !important;
+
+        height: auto !important;
+
+        margin: 0 !important;
+
+        padding: 0 !important;
+
+        overflow: visible !important;
+
+      }
+
+
+      /*
+       * #paper 只是页面容器
        *
-       * 页面本身已经是 A4，
-       * 不需要再 scale。
+       * 不允许它自己产生 A4 高度、
+       * padding、transform 或分页。
        */
 
       #paper.preview-stack {
@@ -1263,9 +1310,9 @@ function installPaginationStyle() {
 
         min-height: 0 !important;
 
-        padding: 0 !important;
-
         margin: 0 !important;
+
+        padding: 0 !important;
 
         transform: none !important;
 
@@ -1273,12 +1320,24 @@ function installPaginationStyle() {
 
         box-shadow: none !important;
 
+        overflow: visible !important;
+
       }
 
 
       /*
-       * 每一个 resume-page
-       * 就是一张完整 A4
+       * ==================================================
+       * 真正的 A4 页面
+       *
+       * 注意：
+       *
+       * 这里故意不写：
+       *
+       * break-inside: avoid
+       * page-break-inside: avoid
+       *
+       * 防止 Safari 产生空白页。
+       * ==================================================
        */
 
       #paper.preview-stack
@@ -1302,8 +1361,6 @@ function installPaginationStyle() {
 
         margin: 0 !important;
 
-        padding: 52px 62px !important;
-
         position: relative !important;
 
         overflow: hidden !important;
@@ -1315,24 +1372,27 @@ function installPaginationStyle() {
         transform: none !important;
 
         /*
-         * 一个页面结束，
-         * 下一张物理纸开始
+         * 唯一的分页控制
          */
 
         break-after: page !important;
 
         page-break-after: always !important;
 
-        break-inside: avoid !important;
-
-        page-break-inside: avoid !important;
-
       }
 
 
       /*
-       * 不同模板的打印 padding
+       * 模板 padding
        */
+
+      #paper.preview-stack
+      > .resume-page.tech {
+
+        padding: 52px 62px !important;
+
+      }
+
 
       #paper.preview-stack
       > .resume-page.minimal {
@@ -1345,13 +1405,40 @@ function installPaginationStyle() {
       #paper.preview-stack
       > .resume-page.stripe {
 
+        padding-top: 52px !important;
+
+        padding-right: 62px !important;
+
+        padding-bottom: 52px !important;
+
         padding-left: 58px !important;
 
       }
 
 
       /*
-       * 最后一页不能再强制分页
+       * 其它模板使用默认 A4 padding
+       */
+
+      #paper.preview-stack
+      > .resume-page.blue,
+      #paper.preview-stack
+      > .resume-page.terminal,
+      #paper.preview-stack
+      > .resume-page.grayblue,
+      #paper.preview-stack
+      > .resume-page.business,
+      #paper.preview-stack
+      > .resume-page.photo {
+
+        padding: 52px 62px !important;
+
+      }
+
+
+      /*
+       * 最后一页：
+       * 不再强制创建下一页
        */
 
       #paper.preview-stack
@@ -1364,6 +1451,8 @@ function installPaginationStyle() {
       }
 
     }
+
+ 
   
 
 
