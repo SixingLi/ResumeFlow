@@ -1,6 +1,10 @@
-/* ResumeFlow V1.2 Service Worker */
+/* =========================================================
+   ResumeFlow V1.3.8 Service Worker
+========================================================= */
 
-const CACHE = "resumeflow-v1.2";
+const CACHE =
+  "resumeflow-v1.3.8";
+
 
 const ASSETS = [
 
@@ -8,132 +12,158 @@ const ASSETS = [
 
   "./index.html",
 
-  "./style.css",
+  "./style.css?v=1.3.8",
 
-  "./app.js",
+  "./app.js?v=1.3.8",
 
   "./manifest.json"
 
 ];
 
-/* =========================================================
-
-   Install
-
-========================================================= */
-
-self.addEventListener("install", event => {
-
-  event.waitUntil(
-
-    caches
-
-      .open(CACHE)
-
-      .then(cache => cache.addAll(ASSETS))
-
-      .then(() => self.skipWaiting())
-
-  );
-
-});
 
 /* =========================================================
-
-   Activate
-
-   删除旧版本缓存
-
+   INSTALL
 ========================================================= */
 
-self.addEventListener("activate", event => {
+self.addEventListener(
+  "install",
+  event => {
 
-  event.waitUntil(
+    event.waitUntil(
 
-    caches
+      caches
+        .open(CACHE)
+        .then(
+          cache =>
+            cache.addAll(
+              ASSETS
+            )
+        )
+        .then(
+          () =>
+            self.skipWaiting()
+        )
 
-      .keys()
+    );
 
-      .then(keys =>
+  }
+);
 
-        Promise.all(
 
-          keys
+/* =========================================================
+   ACTIVATE
+========================================================= */
 
-            .filter(key => key !== CACHE)
+self.addEventListener(
+  "activate",
+  event => {
 
-            .map(key => caches.delete(key))
+    event.waitUntil(
+
+      caches
+        .keys()
+        .then(
+          keys =>
+
+            Promise.all(
+
+              keys
+                .filter(
+                  key =>
+                    key !== CACHE
+                )
+                .map(
+                  key =>
+                    caches.delete(
+                      key
+                    )
+                )
+
+            )
 
         )
+        .then(
+          () =>
+            self.clients.claim()
+        )
+
+    );
+
+  }
+);
+
+
+/* =========================================================
+   FETCH
+   Network First
+========================================================= */
+
+self.addEventListener(
+  "fetch",
+  event => {
+
+    if(
+      event.request.method
+      !== "GET"
+    ){
+
+      return;
+
+    }
+
+
+    /*
+      GitHub Pages / 外部资源：
+      网络优先。
+    */
+
+    event.respondWith(
+
+      fetch(
+        event.request
+      )
+      .then(
+        response => {
+
+          if(
+            response &&
+            response.status === 200
+          ){
+
+            const copy =
+              response.clone();
+
+
+            caches
+              .open(CACHE)
+              .then(
+                cache => {
+
+                  cache.put(
+                    event.request,
+                    copy
+                  );
+
+                }
+              );
+
+          }
+
+
+          return response;
+
+        }
+      )
+      .catch(
+        () =>
+
+          caches.match(
+            event.request
+          )
 
       )
 
-      .then(() => self.clients.claim())
-
-  );
-
-});
-
-/* =========================================================
-
-   Fetch
-
-   Network First
-
-========================================================= */
-
-self.addEventListener("fetch", event => {
-
-  if (event.request.method !== "GET") {
-
-    return;
+    );
 
   }
-
-  event.respondWith(
-
-    fetch(event.request)
-
-      .then(response => {
-
-        // 网络请求成功
-
-        // 更新缓存
-
-        const copy = response.clone();
-
-        caches
-
-          .open(CACHE)
-
-          .then(cache => {
-
-            cache.put(
-
-              event.request,
-
-              copy
-
-            );
-
-          });
-
-        return response;
-
-      })
-
-      .catch(() => {
-
-        // 网络失败时使用缓存
-
-        return caches.match(
-
-          event.request
-
-        );
-
-      })
-
-  );
-
-});
+);
