@@ -1,820 +1,2248 @@
-/* =========================================================
-   ResumeFlow V1.3.0
+/* =======================================================
+   ResumeFlow V1.3.7
    A4 Auto Pagination Edition
+   ======================================================= */
 
-   基于 V1.2.5 修改
+"use strict";
 
-   保留：
-   - TXT / MD / JSON 导入
-   - 拖拽导入
-   - Markdown 解析
-   - 公司 / 项目标题对应关系
-   - 证件照
-   - 8 个模板
-   - 6 个主题色
-   - 字体
-   - 正文字号 10 ~ 18
-   - 预览缩放
-   - localStorage
-   - 一页 / 两页 / 自动
-   - PDF
-   - Service Worker
+const VERSION = "1.3.7";
 
-   V1.3 新增：
-   - 自动模式下真正生成多个 A4 页面
-   - 中间预览区所见即所得显示 A4 分页
-   - 每页固定 210mm × 297mm
-   - 页面之间显示间距和阴影
-   - 尽量保证 section 不跨页
-========================================================= */
+/* =======================================================
+   Storage
+======================================================= */
 
-(() => {
-  "use strict";
+const STORAGE_RESUME = "resumeflow-resume-v122";
+const STORAGE_STATE = "resumeflow-state-v122";
+const STORAGE_PHOTO = "resumeflow-photo-v122";
 
-  const VERSION = "1.3.0";
+/* =======================================================
+   Default State
+======================================================= */
 
-  /* =======================================================
-     DOM
-  ======================================================= */
+const DEFAULT_STATE = {
+  template: "tech",
+  theme: "blue",
+  pageMode: "auto",
+  showPhoto: true,
+  font: "pingfang",
+  fontSize: 13,
+  zoom: 0.8
+};
 
-  const $ = id => document.getElementById(id);
+let state = {
+  ...DEFAULT_STATE
+};
 
-  const source = $("source");
-  const paper = $("paper");
+let resumeText = "";
+let photoData = "";
 
-  const demoBtn = $("demoBtn");
-  const pdfBtn = $("pdfBtn");
+/* =======================================================
+   Themes
+======================================================= */
 
-  const fileInput = $("file");
-  const fileBtn = $("fileBtn");
-  const dropZone = $("drop");
+const THEMES = {
+  black: {
+    accent: "#222222",
+    soft: "#f1f1f1"
+  },
+  blue: {
+    accent: "#2563eb",
+    soft: "#eff6ff"
+  },
+  cyan: {
+    accent: "#0891b2",
+    soft: "#ecfeff"
+  },
+  green: {
+    accent: "#15803d",
+    soft: "#f0fdf4"
+  },
+  gray: {
+    accent: "#4b5563",
+    soft: "#f3f4f6"
+  },
+  wine: {
+    accent: "#9f1239",
+    soft: "#fff1f2"
+  }
+};
 
-  const photoFile = $("photoFile");
-  const photoBtn = $("photoBtn");
-  const removePhotoBtn = $("removePhotoBtn");
-  const photoPreview = $("photoPreview");
+/* =======================================================
+   Demo Resume
+======================================================= */
 
-  const renderBtn = $("renderBtn");
-  const clearBtn = $("clearBtn");
-
-  const templates = $("templates");
-  const themes = $("themes");
-  const pages = $("pages");
-  const photoMode = $("photoMode");
-  const font = $("font");
-  const size = $("size");
-  const sizeVal = $("sizeVal");
-  const zoom = $("zoom");
-  const zoomVal = $("zoomVal");
-
-  /* =======================================================
-     STORAGE
-  ======================================================= */
-
-  const STORAGE = {
-    resume: "resumeflow-resume-v122",
-    state: "resumeflow-state-v122",
-    photo: "resumeflow-photo-v122"
-  };
-
-  /* =======================================================
-     DEFAULT STATE
-  ======================================================= */
-
-  const DEFAULT_STATE = {
-    template: "tech",
-    theme: "blue",
-    pageMode: "auto",
-    showPhoto: true,
-    font: "pingfang",
-    fontSize: 13,
-    zoom: 0.8
-  };
-
-  let state = {
-    ...DEFAULT_STATE
-  };
-
-  /* =======================================================
-     THEMES
-  ======================================================= */
-
-  const THEMES = {
-    black: {
-      main: "#222222",
-      light: "#f2f2f2"
-    },
-
-    blue: {
-      main: "#17365D",
-      light: "#eef4fa"
-    },
-
-    cyan: {
-      main: "#1677FF",
-      light: "#edf5ff"
-    },
-
-    green: {
-      main: "#216E5B",
-      light: "#edf7f3"
-    },
-
-    gray: {
-      main: "#555B66",
-      light: "#f2f3f5"
-    },
-
-    wine: {
-      main: "#7A3030",
-      light: "#faf0f0"
-    }
-  };
-
-  /* =======================================================
-     TEMPLATES
-  ======================================================= */
-
-  const TEMPLATE_LIST = [
-    "tech",
-    "blue",
-    "minimal",
-    "terminal",
-    "grayblue",
-    "stripe",
-    "business",
-    "photo"
-  ];
-
-  /* =======================================================
-     SECTION ALIASES
-  ======================================================= */
-
-  const SECTION_ALIASES = {
-    summary: [
-      "个人优势",
-      "个人简介",
-      "个人概述",
-      "简介",
-      "summary",
-      "profile"
-    ],
-
-    skills: [
-      "核心技能",
-      "专业技能",
-      "技能",
-      "技术栈",
-      "skills",
-      "technical skills"
-    ],
-
-    experience: [
-      "工作经历",
-      "工作经验",
-      "职业经历",
-      "工作履历",
-      "experience",
-      "work experience"
-    ],
-
-    projects: [
-      "项目经历",
-      "项目经验",
-      "项目",
-      "projects",
-      "project experience"
-    ],
-
-    education: [
-      "教育背景",
-      "教育经历",
-      "学历",
-      "education"
-    ],
-
-    certificates: [
-      "证书",
-      "资格证书",
-      "certificates"
-    ],
-
-    awards: [
-      "获奖经历",
-      "奖项",
-      "荣誉",
-      "awards"
-    ]
-  };
-
-  /* =======================================================
-     DEMO
-  ======================================================= */
-
-  const DEMO_MD = `# 李思杏
-
+const DEMO_MD = `# 李思杏
 ADAS软件工程师
 
-成都 | C / C++ / Linux / MATLAB | 4年智能驾驶软件开发经验
+成都 | C/C++ | Linux | MATLAB/Simulink | CAN/CANoe | AUTOSAR
 
-## 个人优势
+## 个人简介
 
-- 4年汽车电子及ADAS软件开发经验，覆盖L2 ACC及TSR功能。
-- 熟悉需求分析、软件设计、编码、联调、测试、标定和问题闭环。
-- 熟悉C、AUTOSAR Classic、SWC/RTE、CAN、CANoe/CANape及DBC。
-- 具备车载ECU应用层软件开发经验。
-- 具备CAN数据分析、MATLAB脚本开发及实车问题定位经验。
-
-## 核心技能
-
-- 语言：C（熟悉）｜C++基础
-- 汽车软件：AUTOSAR Classic｜SWC/RTE｜嵌入式软件｜ADAS
-- 智能驾驶：ACC｜TSR｜L2 ADAS｜纵向控制
-- 通信调试：CAN｜DBC｜CANoe｜CANalyzer｜CANape
-- 数据分析：MATLAB｜MATLAB Script
-- 开发环境：Linux｜GCC｜Git｜CMake
+3+年车载软件与智能驾驶开发经验，主要聚焦L2级智能驾驶功能开发，具备ACC纵向控制、TSR、车辆数据采集分析、标定测试及量产支持经验。熟悉C语言、嵌入式开发、Linux、CAN通信及MATLAB/Simulink工具链。
 
 ## 工作经历
 
-### 深圳安智杰科技有限公司成都分公司
+### 安智杰科技有限公司
+**ADAS软件工程师 | 2022.02 - 2026.06**
 
-**软件工程师｜2022.02 – 2025.08**
+- 参与L2智能驾驶项目开发，负责ACC、TSR等功能模块的软件开发、测试与问题分析。
+- 前期使用MATLAB/Simulink/Carsim搭建车辆控制仿真环境，进行ACC控制算法验证。
+- 使用CAN/CANoe/DBC进行车辆信号采集、分析及问题定位。
+- 负责ACC控制策略开发、参数标定、功能验证及版本发布支持。
+- 针对车辆纵向控制问题开展数据分析和控制参数优化。
 
-- 参与主机厂L2智能驾驶项目开发，负责ACC应用层软件、功能状态机及纵向控制相关模块。
-- 参与需求分析、软件设计、编码实现、系统联调、实车测试和量产问题闭环。
-- 负责ACC调试监测数据外发，完成监测变量缩放、偏移、编码及调试DBC维护。
-- 基于CANoe完成车辆及ADAS信号采集、解析和分析。
-- 使用CANape进行在线标定并保存MF4数据，结合MATLAB分析期望加速度、实际加速度、控制请求及车辆响应。
-- 早期FCW开发阶段基于C++、Qt开发前视摄像头网口采数上位机。
+### 轻型商用车L2智驾项目
+**ACC软件负责人 | 2025.09 - 2026.06**
 
-### 源泰感科技（苏州）有限公司
-
-**ADAS软件工程师｜2025.09 – 2026.06**
-
-- 独立负责轻型商用车L2 ACC、TSR应用层软件开发。
-- 覆盖需求理解、软件实现、SWC/RTE集成、联调、标定、测试及版本发布前问题闭环。
-- 基于AUTOSAR Classic进行应用层SWC开发及RTE接口数据交互。
-- 负责ACC状态机及纵向控制相关功能调试。
-- 使用CANape、i-Jet、MF4、MATLAB开展测量、标定、数据采集、波形分析和问题验证。
-- 针对弯道限速功能，分析车道线半径输入抖动，采用滑动窗口及抑制滤波优化弯道半径处理逻辑。
+- 独立负责L2 ACC功能的软件开发、测试、标定及版本发布。
+- 根据规划层输出的期望纵向加速度设计ACC纵向控制链路。
+- 采用前馈扭矩+PID反馈方式实现车辆纵向加速度跟踪。
+- 针对轻型商用车弯道限速敏感问题，引入弯道半径滑动窗口及抑制滤波策略。
+- 通过CAN信号采集、MATLAB数据分析定位控制延迟、加速度波动等问题。
 
 ## 项目经历
 
-### 轻型商用车 L2 ACC 与 TSR 项目
+### L2 ACC纵向控制
+**2025.09 - 2026.06**
 
-**2025.09 – 2026.06**
+- 负责ACC纵向控制算法开发与优化。
+- 根据期望加速度进行前馈扭矩计算，并通过加速度误差PID生成反馈扭矩。
+- 综合得到最终扭矩请求并通过车辆控制接口下发。
+- 分析ACC_TorqReq_Lim、MCU_Trq、IC_TachVehSpd、EBS_LongitudinalAccn等信号。
+- 针对重载工况下负扭矩不足问题进行制动能力分析与控制策略优化。
 
-- 独立负责ACC、TSR应用层软件开发及集成。
-- 梳理ACC纵向控制链路，围绕期望加速度、实际加速度、前馈扭矩、反馈扭矩、总扭矩请求及车辆实际响应开展数据分析。
-- 分析再生制动、XBR以及MIX、TORQUE、ACCEL控制模式。
-- 针对跟停顿挫、起步顿挫、跟停后溜等问题开展定位、修改和验证。
-- 分析目标切入场景中的目标ID、目标距离、相对运动及TTC信息。
-- 针对ACC控制误抑制、静止状态激活不可用、Resume设定速度异常等边界场景进行问题分析和验证。
-- 针对弯道限速处理车道线半径输入，采用滑动窗口及抑制滤波。
-- 使用CANape、i-Jet、MF4、MATLAB完成实车数据采集、波形分析、问题复现、修改验证和回归检查。
+### TSR交通标志识别
+**2022 - 2026**
 
-### 乘用车 L2 ACC 量产项目
+- 负责TSR状态机及显示逻辑开发。
+- 设计OFF、STANDBY、ACTIVE、ERROR等状态。
+- 根据标志优先级及最小显示保持时间实现显示策略。
+- 完成功能测试、问题定位及版本验证。
 
-**2022.02 – 2025.08**
+## 专业技能
 
-- 参与ACC应用层及代码框架开发，覆盖定速巡航、稳态跟车、Cut-in/Cut-out、弯道限速、Stop&Go等功能。
-- 参与PreScan、CarSim、MATLAB仿真分析及实车调试。
-- 完成ACC调试监测变量外发、变量缩放、偏移、编码及DBC维护。
-- 基于CANoe采集车辆状态、ADAS状态和控制相关信号。
-- 使用CANape进行在线标定和MF4数据采集。
-- 结合MATLAB分析控制请求、期望加速度、实际加速度、响应时间和执行结果。
-- 参与量产版本测试、问题定位、参数标定及修改验证。
+- **编程语言：** C、C++（持续学习）
+- **系统：** Linux、RTOS、ARM
+- **智能驾驶：** ACC、TSR、L2 ADAS
+- **工具：** MATLAB/Simulink、CarSim、CANoe、CANalyzer
+- **开发：** Git、CMake、Makefile、GCC
+- **通信：** CAN、DBC
+- **其他：** AUTOSAR、嵌入式软件开发、功能测试与标定
 
-### 车载前视摄像头 FCW 数据采集上位机
+## 教育经历
 
-**2021.07 – 2022.01**
+### 计算机科学与技术
+**本科**
 
-- 基于C++、Qt开发前视摄像头网口采数上位机。
-- 完成网口通信、数据接收、数据解析、实时显示、数据存储及回放功能。
-- 对采集链路中的数据异常进行调试和验证。
-
-## 典型技术实践
-
-- ACC控制数据分析：围绕控制状态、期望加速度、实际加速度、扭矩请求、车辆响应等信号开展波形分析。
-- 制动控制分析：分析负扭矩、XBR、MIX、TORQUE等控制模式及其切换过程。
-- 数据闭环：CANoe采集 → MF4保存 → MATLAB分析 → 根因定位 → 标定或代码修改 → 重复测试。
-- 软件工程：具备C/C++、AUTOSAR Classic、SWC/RTE、CAN、DBC、CANoe、CANape、MATLAB、Git等车载软件开发和调试经验。
-
-## 教育背景
-
-### 四川师范大学
-
-**计算机科学与技术｜本科｜2017.09 – 2021.06**
 `;
 
-  /* =======================================================
-     TEXT HELPERS
-  ======================================================= */
-
-  function clean(text) {
-    return String(text || "")
-      .replace(/\r/g, "")
-      .replace(/\u00a0/g, " ")
-      .trim();
-  }
-
-  function stripMD(text) {
-    return String(text || "")
-      .replace(/^#{1,6}\s*/, "")
-      .replace(/\*\*(.*?)\*\*/g, "$1")
-      .replace(/__(.*?)__/g, "$1")
-      .replace(/`(.*?)`/g, "$1")
-      .replace(/\[(.*?)\]\(.*?\)/g, "$1")
-      .trim();
-  }
-
-  function escapeHTML(text) {
-    return String(text || "")
-      .replace(/&/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;")
-      .replace(/"/g, "&quot;")
-      .replace(/'/g, "&#039;");
-  }
-
-  function normalizeHeading(text) {
-    return stripMD(text)
-      .replace(/[：:]/g, "")
-      .trim()
-      .toLowerCase();
-  }
-
-  function sectionType(title) {
-    const normalized = normalizeHeading(title);
-
-    for (const [type, aliases] of Object.entries(SECTION_ALIASES)) {
-      if (
-        aliases.some(
-          alias =>
-            normalizeHeading(alias) === normalized
-        )
-      ) {
-        return type;
-      }
-    }
-
-    return null;
-  }
-
-  /* =======================================================
-     MARKDOWN PARSER
-  ======================================================= */
-
-  function parseMarkdown(text) {
-    const lines = clean(text).split("\n");
-
-    const result = {
-      name: "",
-      title: "",
-      contact: "",
-      sections: []
-    };
-
-    let current = null;
-
-    for (const rawLine of lines) {
-      const line = rawLine.trim();
-
-      if (!line) {
-        continue;
-      }
-
-      const heading =
-        line.match(/^(#{1,6})\s+(.+)$/);
-
-      if (heading) {
-        const level = heading[1].length;
-        const title = stripMD(heading[2]);
-
-        if (
-          level === 1 &&
-          !result.name
-        ) {
-          result.name = title;
-          continue;
-        }
-
-        const type = sectionType(title);
-
-        if (type) {
-          current = {
-            type,
-            title,
-            items: []
-          };
-
-          result.sections.push(current);
-          continue;
-        }
-
-        if (
-          current &&
-          level >= 3
-        ) {
-          current.items.push({
-            type: "subheading",
-            text: title
-          });
-
-          continue;
-        }
-      }
-
-      const plain = stripMD(line);
-
-      if (
-        !current &&
-        result.name &&
-        !result.title
-      ) {
-        result.title = plain;
-        continue;
-      }
-
-      if (
-        !current &&
-        result.title &&
-        !result.contact
-      ) {
-        result.contact = plain;
-        continue;
-      }
-
-      if (!current) {
-        continue;
-      }
-
-      if (
-        /^[-*+]\s+/.test(line)
-      ) {
-        current.items.push({
-          type: "bullet",
-          text: stripMD(
-            line.replace(
-              /^[-*+]\s+/,
-              ""
-            )
-          )
-        });
-      } else {
-        current.items.push({
-          type: "text",
-          text: plain
-        });
-      }
-    }
-
-    return result;
-  }
-
-  /* =======================================================
-     JSON PARSER
-  ======================================================= */
-
-  function parseJSON(text) {
-    try {
-      const data = JSON.parse(text);
-
-      if (
-        !data ||
-        typeof data !== "object"
-      ) {
-        return null;
-      }
-
-      const result = {
-        name:
-          data.name ||
-          data.姓名 ||
-          "",
-
-        title:
-          data.title ||
-          data.jobTitle ||
-          data.position ||
-          data.职位 ||
-          "",
-
-        contact:
-          data.contact ||
-          data.contacts ||
-          data.联系方式 ||
-          "",
-
-        sections: []
-      };
-
-      const keys = [
-        "summary",
-        "skills",
-        "experience",
-        "projects",
-        "education",
-        "certificates",
-        "awards"
-      ];
-
-      keys.forEach(key => {
-        if (!data[key]) {
-          return;
-        }
-
-        const section = {
-          type: key,
-          title: SECTION_ALIASES[key][0],
-          items: []
-        };
-
-        const value = data[key];
-
-        if (Array.isArray(value)) {
-          value.forEach(item => {
-
-            if (
-              typeof item ===
-              "string"
-            ) {
-              section.items.push({
-                type: "text",
-                text: item
-              });
-
-              return;
-            }
-
-            if (
-              item &&
-              typeof item ===
-              "object"
-            ) {
-              const heading =
-                item.title ||
-                item.name ||
-                item.company ||
-                item.school ||
-                "";
-
-              if (heading) {
-                section.items.push({
-                  type: "subheading",
-                  text: heading
-                });
-              }
-
-              if (item.description) {
-                section.items.push({
-                  type: "text",
-                  text: item.description
-                });
-              }
-
-              if (
-                Array.isArray(
-                  item.bullets
-                )
-              ) {
-                item.bullets.forEach(
-                  bullet => {
-                    section.items.push({
-                      type: "bullet",
-                      text: bullet
-                    });
-                  }
-                );
-              }
-            }
-          });
-
-        } else if (
-          typeof value ===
-          "string"
-        ) {
-          section.items.push({
-            type: "text",
-            text: value
-          });
-        }
-
-        result.sections.push(section);
-      });
-
-      return result;
-
-    } catch {
-      return null;
-    }
-  }
-
-  /* =======================================================
-     RESUME PARSER
-  ======================================================= */
-
-  function parseResume(text) {
-    text = clean(text);
-
-    if (!text) {
-      return {
-        name: "姓名",
-        title: "求职职位",
-        contact: "",
-        sections: []
-      };
-    }
-
-    const json = parseJSON(text);
-
-    if (json) {
-      return json;
-    }
-
-    return parseMarkdown(text);
-  }
-
-  /* =======================================================
-     HEADER
-  ======================================================= */
-
-  function renderHeader(data) {
-    const photo =
-      localStorage.getItem(
-        STORAGE.photo
-      );
-
-    let photoHTML = "";
-
-    if (
-      state.showPhoto &&
-      photo
-    ) {
-      photoHTML = `
-        <div class="resume-photo">
-          <img
-            src="${photo}"
-            alt="证件照"
-          />
-        </div>
-      `;
-    }
-
-    return `
-      <header class="paper-header">
-
-        <div class="identity">
-
-          <div class="name">
-            ${escapeHTML(
-              data.name ||
-              "姓名"
-            )}
-          </div>
-
-          <div class="title">
-            ${escapeHTML(
-              data.title ||
-              ""
-            )}
-          </div>
-
-          <div class="contact">
-            ${escapeHTML(
-              data.contact ||
-              ""
-            )}
-          </div>
-
-        </div>
-
-        ${photoHTML}
-
-      </header>
-    `;
-  }
-
-  /* =======================================================
-     SECTION
-  ======================================================= */
-
-  function renderSection(section) {
-    if (
-      !section.items ||
-      !section.items.length
-    ) {
-      return "";
-    }
-
-    let bodyHTML = "";
-    let bulletHTML = "";
-    let hasBullet = false;
-
-    function flushBullets() {
-      if (!hasBullet) {
-        return;
-      }
-
-      bodyHTML += `
-        <ul>
-          ${bulletHTML}
-        </ul>
-      `;
-
-      bulletHTML = "";
-      hasBullet = false;
-    }
-
-    section.items.forEach(item => {
-
-      const text =
-        escapeHTML(
-          item.text || ""
-        );
-
-      if (!text) {
-        return;
-      }
-
-      if (
-        item.type ===
-        "subheading"
-      ) {
-        flushBullets();
-
-        bodyHTML += `
-          <div class="item-head">
-            ${text}
-          </div>
-        `;
-
-        return;
-      }
-
-      if (
-        item.type ===
-        "text"
-      ) {
-        flushBullets();
-
-        bodyHTML += `
-          <p>
-            ${text}
-          </p>
-        `;
-
-        return;
-      }
-
-      if (
-        item.type ===
-        "bullet"
-      ) {
-        hasBullet = true;
-
-        bulletHTML += `
-          <li>
-            ${text}
-          </li>
-        `;
-      }
-    });
-
-    flushBullets();
-
-    return `
-      <section
-        class="section section-${escapeHTML(
-          section.type
-        )}"
-      >
-
-        <div class="section-title">
-          ${escapeHTML(
-            section.title
-          )}
-        </div>
-
-        <div class="section-body">
-          ${bodyHTML}
-        </div>
-
-      </section>
-    `;
-  }
-
+/* =======================================================
+   Section Aliases
+======================================================= */
+
+const SECTION_ALIASES = {
+  summary: [
+    "个人简介",
+    "个人介绍",
+    "个人概述",
+    "简介",
+    "职业简介",
+    "Summary",
+    "Profile",
+    "About"
+  ],
+
+  experience: [
+    "工作经历",
+    "工作经验",
+    "工作履历",
+    "职业经历",
+    "Work Experience",
+    "Experience"
+  ],
+
+  project: [
+    "项目经历",
+    "项目经验",
+    "项目履历",
+    "Projects",
+    "Project Experience"
+  ],
+
+  education: [
+    "教育经历",
+    "教育背景",
+    "学历",
+    "Education"
+  ],
+
+  skills: [
+    "专业技能",
+    "技能",
+    "技术栈",
+    "技能特长",
+    "Technical Skills",
+    "Skills"
+  ],
+
+  certificate: [
+    "证书",
+    "资格证书",
+    "Certificates",
+    "Certification"
+  ],
+
+  awards: [
+    "荣誉奖项",
+    "奖项",
+    "荣誉",
+    "Awards"
+  ],
+
+  self: [
+    "自我评价",
+    "个人评价",
+    "Self Evaluation",
+    "Profile"
+  ]
+};
 
 /* =======================================================
-   V1.3.1 PAGINATION STYLE
+   Helpers
+======================================================= */
+
+function $(selector) {
+  return document.querySelector(selector);
+}
+
+function $all(selector) {
+  return Array.from(document.querySelectorAll(selector));
+}
+
+function escapeHTML(str) {
+  return String(str || "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
+function normalizeText(text) {
+  return String(text || "")
+    .replace(/\r\n/g, "\n")
+    .replace(/\r/g, "\n")
+    .trim();
+}
+
+function normalizeHeading(text) {
+  return String(text || "")
+    .replace(/^#+\s*/, "")
+    .replace(/^\*\*(.*?)\*\*$/, "$1")
+    .trim();
+}
+
+function isSectionHeading(text) {
+  const normalized = normalizeHeading(text);
+
+  for (const list of Object.values(SECTION_ALIASES)) {
+    if (
+      list.some(
+        item => item.toLowerCase() === normalized.toLowerCase()
+      )
+    ) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+function getSectionType(text) {
+  const normalized = normalizeHeading(text).toLowerCase();
+
+  for (const [type, aliases] of Object.entries(SECTION_ALIASES)) {
+    if (
+      aliases.some(
+        item => item.toLowerCase() === normalized
+      )
+    ) {
+      return type;
+    }
+  }
+
+  return "other";
+}
+
+function parseInline(text) {
+  let result = escapeHTML(text);
+
+  result = result.replace(
+    /\*\*(.+?)\*\*/g,
+    "<strong>$1</strong>"
+  );
+
+  result = result.replace(
+    /`(.+?)`/g,
+    "<code>$1</code>"
+  );
+
+  result = result.replace(
+    /\[(.+?)\]\((https?:\/\/.+?)\)/g,
+    '<a href="$2" target="_blank">$1</a>'
+  );
+
+  return result;
+}
+
+/* =======================================================
+   Markdown Parser
+======================================================= */
+
+function parseResume(text) {
+  const lines = normalizeText(text).split("\n");
+
+  const result = {
+    name: "",
+    title: "",
+    contact: [],
+    sections: []
+  };
+
+  let i = 0;
+
+  while (
+    i < lines.length &&
+    !lines[i].trim()
+  ) {
+    i++;
+  }
+
+  /* -----------------------------------------------
+     Header
+  ----------------------------------------------- */
+
+  const headerLines = [];
+
+  while (
+    i < lines.length &&
+    headerLines.length < 8
+  ) {
+    const line = lines[i].trim();
+
+    if (!line) {
+      i++;
+      continue;
+    }
+
+    if (
+      /^#{1,6}\s+/.test(line) &&
+      headerLines.length > 0
+    ) {
+      break;
+    }
+
+    if (
+      isSectionHeading(line)
+    ) {
+      break;
+    }
+
+    headerLines.push(line);
+    i++;
+  }
+
+  const cleanHeader = headerLines.map(line =>
+    normalizeHeading(line)
+  );
+
+  if (cleanHeader.length > 0) {
+    result.name = cleanHeader[0];
+  }
+
+  if (cleanHeader.length > 1) {
+    result.title = cleanHeader[1];
+  }
+
+  if (cleanHeader.length > 2) {
+    result.contact = cleanHeader.slice(2);
+  }
+
+  /* -----------------------------------------------
+     Sections
+  ----------------------------------------------- */
+
+  let currentSection = null;
+
+  for (; i < lines.length; i++) {
+    const raw = lines[i];
+    const line = raw.trim();
+
+    if (!line) {
+      if (
+        currentSection &&
+        currentSection.content.length > 0
+      ) {
+        currentSection.content.push("");
+      }
+
+      continue;
+    }
+
+    const headingMatch =
+      line.match(/^#{1,6}\s+(.+)$/);
+
+    const boldHeadingMatch =
+      line.match(/^\*\*(.+?)\*\*$/);
+
+    let headingText = null;
+
+    if (headingMatch) {
+      headingText = headingMatch[1];
+    } else if (
+      boldHeadingMatch &&
+      isSectionHeading(boldHeadingMatch[1])
+    ) {
+      headingText = boldHeadingMatch[1];
+    }
+
+    if (
+      headingText &&
+      isSectionHeading(headingText)
+    ) {
+      if (currentSection) {
+        result.sections.push(currentSection);
+      }
+
+      currentSection = {
+        title: normalizeHeading(headingText),
+        type: getSectionType(headingText),
+        content: []
+      };
+
+      continue;
+    }
+
+    if (!currentSection) {
+      currentSection = {
+        title: "其他",
+        type: "other",
+        content: []
+      };
+    }
+
+    currentSection.content.push(raw);
+  }
+
+  if (currentSection) {
+    result.sections.push(currentSection);
+  }
+
+  return result;
+}
+
+/* =======================================================
+   Markdown → HTML
+======================================================= */
+
+function renderMarkdownLines(lines) {
+  const output = [];
+
+  let listItems = [];
+
+  function flushList() {
+    if (listItems.length === 0) {
+      return;
+    }
+
+    output.push(
+      `<ul>${listItems.join("")}</ul>`
+    );
+
+    listItems = [];
+  }
+
+  for (const rawLine of lines) {
+    const line = rawLine.trim();
+
+    if (!line) {
+      flushList();
+      continue;
+    }
+
+    const bulletMatch =
+      line.match(/^[-*+]\s+(.+)$/);
+
+    if (bulletMatch) {
+      listItems.push(
+        `<li>${parseInline(bulletMatch[1])}</li>`
+      );
+      continue;
+    }
+
+    flushList();
+
+    const h3 =
+      line.match(/^###\s+(.+)$/);
+
+    if (h3) {
+      output.push(
+        `<h4>${parseInline(h3[1])}</h4>`
+      );
+      continue;
+    }
+
+    const h4 =
+      line.match(/^####\s+(.+)$/);
+
+    if (h4) {
+      output.push(
+        `<h5>${parseInline(h4[1])}</h5>`
+      );
+      continue;
+    }
+
+    output.push(
+      `<p>${parseInline(line)}</p>`
+    );
+  }
+
+  flushList();
+
+  return output.join("");
+}
+
+/* =======================================================
+   Work / Project Parser
+======================================================= */
+
+function parseWorkItems(lines) {
+  const items = [];
+
+  let current = null;
+
+  for (const raw of lines) {
+    const line = raw.trim();
+
+    if (!line) {
+      continue;
+    }
+
+    const heading =
+      line.match(/^###\s+(.+)$/);
+
+    if (heading) {
+      if (current) {
+        items.push(current);
+      }
+
+      current = {
+        title: heading[1],
+        body: []
+      };
+
+      continue;
+    }
+
+    const boldHeading =
+      line.match(/^\*\*(.+?)\*\*(?:\s*\|\s*(.*))?$/);
+
+    if (
+      boldHeading &&
+      !line.startsWith("**职责")
+    ) {
+      if (current) {
+        items.push(current);
+      }
+
+      current = {
+        title: boldHeading[1],
+        meta: boldHeading[2] || "",
+        body: []
+      };
+
+      continue;
+    }
+
+    if (!current) {
+      current = {
+        title: "",
+        body: []
+      };
+    }
+
+    current.body.push(raw);
+  }
+
+  if (current) {
+    items.push(current);
+  }
+
+  return items;
+}
+
+/* =======================================================
+   Render Section
+======================================================= */
+
+function renderSection(section) {
+  const title = escapeHTML(section.title);
+
+  let html = `
+    <section class="section section-${section.type}">
+      <div class="section-title">
+        <span>${title}</span>
+      </div>
+  `;
+
+  if (
+    section.type === "experience" ||
+    section.type === "project"
+  ) {
+    const items =
+      parseWorkItems(section.content);
+
+    if (items.length > 0) {
+      for (const item of items) {
+        html += `
+          <article class="resume-item">
+            ${
+              item.title
+                ? `<div class="item-head">
+                     <div class="item-title">
+                       ${parseInline(item.title)}
+                     </div>
+                     ${
+                       item.meta
+                         ? `<div class="item-meta">
+                              ${parseInline(item.meta)}
+                            </div>`
+                         : ""
+                     }
+                   </div>`
+                : ""
+            }
+            <div class="item-body">
+              ${renderMarkdownLines(item.body)}
+            </div>
+          </article>
+        `;
+      }
+    } else {
+      html += `
+        <div class="section-content">
+          ${renderMarkdownLines(section.content)}
+        </div>
+      `;
+    }
+  } else {
+    html += `
+      <div class="section-content">
+        ${renderMarkdownLines(section.content)}
+      </div>
+    `;
+  }
+
+  html += `
+    </section>
+  `;
+
+  return html;
+}
+
+/* =======================================================
+   Render Header
+======================================================= */
+
+function renderHeader(data) {
+  const contactHTML =
+    data.contact && data.contact.length
+      ? `
+        <div class="resume-contact">
+          ${data.contact
+            .map(item =>
+              `<span>${parseInline(item)}</span>`
+            )
+            .join("")}
+        </div>
+      `
+      : "";
+
+  const photoHTML =
+    state.showPhoto && photoData
+      ? `
+        <div class="resume-photo-wrap">
+          <img
+            class="resume-photo"
+            src="${photoData}"
+            alt="photo"
+          >
+        </div>
+      `
+      : "";
+
+  return `
+    <header class="resume-header">
+      <div class="resume-header-main">
+        <h1 class="resume-name">
+          ${escapeHTML(data.name || "姓名")}
+        </h1>
+
+        ${
+          data.title
+            ? `<div class="resume-title">
+                 ${parseInline(data.title)}
+               </div>`
+            : ""
+        }
+
+        ${contactHTML}
+      </div>
+
+      ${photoHTML}
+    </header>
+  `;
+}
+
+/* =======================================================
+   Main Render
+======================================================= */
+
+function renderResume() {
+  const data = parseResume(resumeText);
+
+  const paper = $("#paper");
+
+  if (!paper) {
+    return;
+  }
+
+  paper.innerHTML = "";
+
+  const page = document.createElement("div");
+
+  page.className =
+    `paper resume-page ${state.template} page-auto`;
+
+  const theme =
+    THEMES[state.theme] || THEMES.blue;
+
+  page.style.setProperty(
+    "--accent",
+    theme.accent
+  );
+
+  page.style.setProperty(
+    "--accent-soft",
+    theme.soft
+  );
+
+  page.style.setProperty(
+    "--resume-accent",
+    theme.accent
+  );
+
+  page.style.setProperty(
+    "--resume-accent-light",
+    theme.soft
+  );
+
+  page.style.setProperty(
+    "--resume-font-size",
+    `${state.fontSize}px`
+  );
+
+  page.innerHTML =
+    renderHeader(data) +
+    data.sections
+      .map(section =>
+        renderSection(section)
+      )
+      .join("");
+
+  paper.appendChild(page);
+}
+
+/* =======================================================
+   Pagination
 ======================================================= */
 
 function installPaginationStyle() {
+  if ($("#resumeflow-pagination-style")) {
+    return;
+  }
 
-  const old =
-    document.getElementById(
-      "resumeflow-pagination-v131"
+  const style =
+    document.createElement("style");
+
+  style.id =
+    "resumeflow-pagination-style";
+
+  style.textContent = `
+    #paper.preview-stack {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 24px;
+    }
+
+    #paper.preview-stack > .resume-page {
+      width: var(--paper-w);
+      height: var(--paper-h);
+      min-width: var(--paper-w);
+      max-width: var(--paper-w);
+      min-height: var(--paper-h);
+      max-height: var(--paper-h);
+
+      flex: 0 0 var(--paper-h);
+
+      box-sizing: border-box;
+      position: relative;
+
+      overflow: hidden;
+      background: #fff;
+    }
+
+    #paper.preview-stack
+      .resume-page
+      .section {
+      break-inside: avoid;
+      page-break-inside: avoid;
+    }
+
+    #paper.preview-stack
+      .resume-page
+      .item-head {
+      break-inside: avoid;
+      page-break-inside: avoid;
+    }
+
+    #paper.preview-stack
+      .resume-page
+      li {
+      break-inside: avoid;
+      page-break-inside: avoid;
+    }
+
+    #paper.preview-stack
+      .resume-page
+      .section-title {
+      break-after: avoid;
+      page-break-after: avoid;
+    }
+  `;
+
+  document.head.appendChild(style);
+}
+
+/* =======================================================
+   Page Factory
+======================================================= */
+
+function createPage() {
+  const page =
+    document.createElement("div");
+
+  page.className =
+    `paper resume-page ${state.template} page-auto`;
+
+  const theme =
+    THEMES[state.theme] || THEMES.blue;
+
+  page.style.setProperty(
+    "--accent",
+    theme.accent
+  );
+
+  page.style.setProperty(
+    "--accent-soft",
+    theme.soft
+  );
+
+  page.style.setProperty(
+    "--resume-accent",
+    theme.accent
+  );
+
+  page.style.setProperty(
+    "--resume-accent-light",
+    theme.soft
+  );
+
+  page.style.setProperty(
+    "--resume-font-size",
+    `${state.fontSize}px`
+  );
+
+  page.style.boxSizing =
+    "border-box";
+
+  page.style.width =
+    "var(--paper-w)";
+
+  page.style.height =
+    "var(--paper-h)";
+
+  page.style.minWidth =
+    "var(--paper-w)";
+
+  page.style.maxWidth =
+    "var(--paper-w)";
+
+  page.style.minHeight =
+    "var(--paper-h)";
+
+  page.style.maxHeight =
+    "var(--paper-h)";
+
+  page.style.flex =
+    "0 0 var(--paper-h)";
+
+  page.style.margin = "0";
+
+  page.style.position =
+    "relative";
+
+  page.style.overflow =
+    "hidden";
+
+  page.style.background =
+    "#fff";
+
+  return page;
+}
+
+/* =======================================================
+   Overflow Check
+======================================================= */
+
+function isOverflow(page) {
+  return (
+    page.scrollHeight >
+    page.clientHeight + 1
+  );
+}
+
+/* =======================================================
+   Collect Top Level Nodes
+======================================================= */
+
+function collectResumeNodes(sourcePage) {
+  return Array.from(
+    sourcePage.children
+  );
+}
+
+/* =======================================================
+   Pagination Group
+======================================================= */
+
+function paginateGroupedSection(
+  sectionNode,
+  currentPage,
+  pages
+) {
+  const children =
+    Array.from(sectionNode.children);
+
+  if (children.length === 0) {
+    return currentPage;
+  }
+
+  const titleNode =
+    children.find(node =>
+      node.classList.contains(
+        "section-title"
+      )
     );
+
+  if (titleNode) {
+    currentPage.appendChild(
+      titleNode.cloneNode(true)
+    );
+  }
+
+  const items =
+    children.filter(node =>
+      node.classList.contains(
+        "resume-item"
+      )
+    );
+
+  if (items.length === 0) {
+    return currentPage;
+  }
+
+  for (const item of items) {
+    const clone =
+      item.cloneNode(true);
+
+    currentPage.appendChild(clone);
+
+    if (isOverflow(currentPage)) {
+      currentPage.removeChild(clone);
+
+      const newPage =
+        createPage();
+
+      pages.push(newPage);
+
+      currentPage =
+        newPage;
+
+      if (titleNode) {
+        currentPage.appendChild(
+          titleNode.cloneNode(true)
+        );
+      }
+
+      currentPage.appendChild(clone);
+
+      /*
+       * 如果一个完整项目本身就超过一页，
+       * 不继续无限创建页面。
+       */
+      if (isOverflow(currentPage)) {
+        continue;
+      }
+    }
+  }
+
+  return currentPage;
+}
+
+/* =======================================================
+   Auto Pagination
+======================================================= */
+
+function paginatePreview() {
+  const paper = $("#paper");
+
+  if (!paper) {
+    return;
+  }
+
+  if (state.pageMode !== "auto") {
+    return;
+  }
+
+  const originalPage =
+    paper.querySelector(
+      ".resume-page"
+    );
+
+  if (!originalPage) {
+    return;
+  }
+
+  const nodes =
+    collectResumeNodes(
+      originalPage
+    );
+
+  paper.innerHTML = "";
+
+  paper.classList.add(
+    "preview-stack"
+  );
+
+  let currentPage =
+    createPage();
+
+  paper.appendChild(
+    currentPage
+  );
+
+  const pages = [
+    currentPage
+  ];
+
+  for (const node of nodes) {
+    /*
+     * 工作经历 / 项目经历：
+     * 以完整 item 为分页单位，
+     * 避免公司标题和项目内容被拆开。
+     */
+    if (
+      node.classList.contains(
+        "section-experience"
+      ) ||
+      node.classList.contains(
+        "section-project"
+      )
+    ) {
+      currentPage =
+        paginateGroupedSection(
+          node,
+          currentPage,
+          pages
+        );
+
+      continue;
+    }
+
+    /*
+     * 普通 section：
+     * 整块放入当前页。
+     * 超出则整体移动到下一页。
+     */
+    const clone =
+      node.cloneNode(true);
+
+    currentPage.appendChild(
+      clone
+    );
+
+    if (isOverflow(currentPage)) {
+      currentPage.removeChild(
+        clone
+      );
+
+      currentPage =
+        createPage();
+
+      pages.push(
+        currentPage
+      );
+
+      paper.appendChild(
+        currentPage
+      );
+
+      currentPage.appendChild(
+        clone
+      );
+    }
+  }
+
+  /*
+   * 重新应用主题变量
+   */
+  pages.forEach(page => {
+    const theme =
+      THEMES[state.theme] ||
+      THEMES.blue;
+
+    page.style.setProperty(
+      "--accent",
+      theme.accent
+    );
+
+    page.style.setProperty(
+      "--accent-soft",
+      theme.soft
+    );
+
+    page.style.setProperty(
+      "--resume-accent",
+      theme.accent
+    );
+
+    page.style.setProperty(
+      "--resume-accent-light",
+      theme.soft
+    );
+
+    page.style.setProperty(
+      "--resume-font-size",
+      `${state.fontSize}px`
+    );
+  });
+}
+
+/* =======================================================
+   Font
+======================================================= */
+
+function applyFont() {
+  const paper = $("#paper");
+
+  if (!paper) {
+    return;
+  }
+
+  let fontFamily =
+    '"PingFang SC", "Microsoft YaHei", sans-serif';
+
+  if (state.font === "yahei") {
+    fontFamily =
+      '"Microsoft YaHei", sans-serif';
+  }
+
+  if (state.font === "song") {
+    fontFamily =
+      '"Songti SC", "SimSun", serif';
+  }
+
+  if (state.font === "mono") {
+    fontFamily =
+      '"SFMono-Regular", Consolas, monospace';
+  }
+
+  paper.style.setProperty(
+    "--resume-font-family",
+    fontFamily
+  );
+
+  paper.style.setProperty(
+    "--resume-font-size",
+    `${state.fontSize}px`
+  );
+}
+
+/* =======================================================
+   Scale Preview
+======================================================= */
+
+function updatePreviewScale() {
+  const paper =
+    $("#paper");
+
+  const viewport =
+    $("#previewViewport");
+
+  if (!paper || !viewport) {
+    return;
+  }
+
+  const zoom =
+    Number(state.zoom) || 0.8;
+
+  paper.style.transform =
+    `scale(${zoom})`;
+
+  paper.style.transformOrigin =
+    "top center";
+
+  const pageCount =
+    paper.querySelectorAll(
+      ".resume-page"
+    ).length || 1;
+
+  const paperHeight =
+    1122 * zoom;
+
+  const gap = 24;
+
+  viewport.style.minHeight =
+    `${pageCount * paperHeight +
+      Math.max(0, pageCount - 1) *
+        gap}px`;
+}
+
+/* =======================================================
+   Main Render Pipeline
+======================================================= */
+
+function render() {
+  renderResume();
+
+  requestAnimationFrame(() => {
+    if (
+      state.pageMode === "auto"
+    ) {
+      paginatePreview();
+    }
+
+    applyFont();
+
+    updatePreviewScale();
+  });
+}
+
+/* =======================================================
+   State
+======================================================= */
+
+function normalizeState() {
+  state = {
+    ...DEFAULT_STATE,
+    ...(state || {})
+  };
+
+  if (
+    !THEMES[state.theme]
+  ) {
+    state.theme =
+      DEFAULT_STATE.theme;
+  }
+
+  if (
+    !Number.isFinite(
+      Number(state.fontSize)
+    )
+  ) {
+    state.fontSize =
+      DEFAULT_STATE.fontSize;
+  }
+
+  state.fontSize =
+    Math.max(
+      10,
+      Math.min(
+        18,
+        Number(state.fontSize)
+      )
+    );
+
+  if (
+    ![
+      "auto",
+      "manual"
+    ].includes(
+      state.pageMode
+    )
+  ) {
+    state.pageMode =
+      "auto";
+  }
+}
+
+/* =======================================================
+   Save / Load
+======================================================= */
+
+function save() {
+  try {
+    localStorage.setItem(
+      STORAGE_RESUME,
+      resumeText
+    );
+
+    localStorage.setItem(
+      STORAGE_STATE,
+      JSON.stringify(state)
+    );
+
+    if (photoData) {
+      localStorage.setItem(
+        STORAGE_PHOTO,
+        photoData
+      );
+    } else {
+      localStorage.removeItem(
+        STORAGE_PHOTO
+      );
+    }
+  } catch (error) {
+    console.warn(
+      "ResumeFlow save failed:",
+      error
+    );
+  }
+}
+
+function load() {
+  try {
+    const savedResume =
+      localStorage.getItem(
+        STORAGE_RESUME
+      );
+
+    if (savedResume) {
+      resumeText =
+        savedResume;
+    } else {
+      resumeText =
+        DEMO_MD;
+    }
+
+    const savedState =
+      localStorage.getItem(
+        STORAGE_STATE
+      );
+
+    if (savedState) {
+      state = {
+        ...DEFAULT_STATE,
+        ...JSON.parse(savedState)
+      };
+    }
+
+    photoData =
+      localStorage.getItem(
+        STORAGE_PHOTO
+      ) || "";
+  } catch (error) {
+    console.warn(
+      "ResumeFlow load failed:",
+      error
+    );
+
+    resumeText =
+      DEMO_MD;
+
+    state = {
+      ...DEFAULT_STATE
+    };
+
+    photoData = "";
+  }
+}
+/* =======================================================
+   Control Sync
+======================================================= */
+
+function syncControls() {
+  const template =
+    $("#templateSelect");
+
+  const theme =
+    $("#themeSelect");
+
+  const pageMode =
+    $("#pageModeSelect");
+
+  const font =
+    $("#fontSelect");
+
+  const fontSize =
+    $("#fontSize");
+
+  const zoom =
+    $("#zoomRange");
+
+  const showPhoto =
+    $("#showPhoto");
+
+  if (template) {
+    template.value =
+      state.template;
+  }
+
+  if (theme) {
+    theme.value =
+      state.theme;
+  }
+
+  if (pageMode) {
+    pageMode.value =
+      state.pageMode;
+  }
+
+  if (font) {
+    font.value =
+      state.font;
+  }
+
+  if (fontSize) {
+    fontSize.value =
+      state.fontSize;
+  }
+
+  if (zoom) {
+    zoom.value =
+      state.zoom;
+  }
+
+  if (showPhoto) {
+    showPhoto.checked =
+      !!state.showPhoto;
+  }
+
+  const resumeInput =
+    $("#resumeInput");
+
+  if (resumeInput) {
+    resumeInput.value =
+      resumeText;
+  }
+
+  updateFontSizeLabel();
+  updateZoomLabel();
+}
+
+/* =======================================================
+   Labels
+======================================================= */
+
+function updateFontSizeLabel() {
+  const label =
+    $("#fontSizeValue");
+
+  if (label) {
+    label.textContent =
+      `${state.fontSize}px`;
+  }
+}
+
+function updateZoomLabel() {
+  const label =
+    $("#zoomValue");
+
+  if (label) {
+    label.textContent =
+      `${Math.round(
+        Number(state.zoom) * 100
+      )}%`;
+  }
+}
+
+/* =======================================================
+   Theme
+======================================================= */
+
+function applyTheme() {
+  const theme =
+    THEMES[state.theme] ||
+    THEMES.blue;
+
+  document.documentElement.style.setProperty(
+    "--accent",
+    theme.accent
+  );
+
+  document.documentElement.style.setProperty(
+    "--accent-soft",
+    theme.soft
+  );
+
+  document.documentElement.style.setProperty(
+    "--resume-accent",
+    theme.accent
+  );
+
+  document.documentElement.style.setProperty(
+    "--resume-accent-light",
+    theme.soft
+  );
+}
+
+/* =======================================================
+   Template
+======================================================= */
+
+function setTemplate(value) {
+  state.template =
+    value || "tech";
+
+  save();
+
+  render();
+}
+
+/* =======================================================
+   Theme Select
+======================================================= */
+
+function setTheme(value) {
+  state.theme =
+    value || "blue";
+
+  applyTheme();
+
+  save();
+
+  render();
+}
+
+/* =======================================================
+   Page Mode
+======================================================= */
+
+function setPageMode(value) {
+  state.pageMode =
+    value === "manual"
+      ? "manual"
+      : "auto";
+
+  save();
+
+  render();
+}
+
+/* =======================================================
+   Font
+======================================================= */
+
+function setFont(value) {
+  state.font =
+    value || "pingfang";
+
+  save();
+
+  render();
+}
+
+/* =======================================================
+   Font Size
+======================================================= */
+
+function setFontSize(value) {
+  let size =
+    Number(value);
+
+  if (!Number.isFinite(size)) {
+    size = 13;
+  }
+
+  size =
+    Math.max(
+      10,
+      Math.min(
+        18,
+        size
+      )
+    );
+
+  state.fontSize =
+    size;
+
+  updateFontSizeLabel();
+
+  save();
+
+  render();
+}
+
+/* =======================================================
+   Zoom
+======================================================= */
+
+function setZoom(value) {
+  let zoom =
+    Number(value);
+
+  if (!Number.isFinite(zoom)) {
+    zoom = 0.8;
+  }
+
+  zoom =
+    Math.max(
+      0.4,
+      Math.min(
+        1.2,
+        zoom
+      )
+    );
+
+  state.zoom =
+    zoom;
+
+  updateZoomLabel();
+
+  save();
+
+  updatePreviewScale();
+}
+
+/* =======================================================
+   Photo UI
+======================================================= */
+
+function updatePhotoUI() {
+  const panel =
+    $("#photoPanel");
+
+  const img =
+    $("#photoPreview");
+
+  const empty =
+    $("#photoEmpty");
+
+  const remove =
+    $("#removePhoto");
+
+  if (panel) {
+    panel.style.display =
+      state.showPhoto
+        ? ""
+        : "none";
+  }
+
+  if (img) {
+    if (photoData) {
+      img.src =
+        photoData;
+
+      img.style.display =
+        "block";
+    } else {
+      img.removeAttribute(
+        "src"
+      );
+
+      img.style.display =
+        "none";
+    }
+  }
+
+  if (empty) {
+    empty.style.display =
+      photoData
+        ? "none"
+        : "";
+  }
+
+  if (remove) {
+    remove.disabled =
+      !photoData;
+  }
+}
+
+/* =======================================================
+   Photo Upload
+======================================================= */
+
+function handlePhotoFile(file) {
+  if (!file) {
+    return;
+  }
+
+  if (
+    ![
+      "image/jpeg",
+      "image/png",
+      "image/webp"
+    ].includes(
+      file.type
+    )
+  ) {
+    alert(
+      "仅支持 JPG、PNG、WebP 图片。"
+    );
+
+    return;
+  }
+
+  const reader =
+    new FileReader();
+
+  reader.onload = event => {
+    photoData =
+      event.target.result;
+
+    state.showPhoto =
+      true;
+
+    save();
+
+    updatePhotoUI();
+
+    syncControls();
+
+    render();
+  };
+
+  reader.readAsDataURL(file);
+}
+
+/* =======================================================
+   Remove Photo
+======================================================= */
+
+function removePhoto() {
+  photoData = "";
+
+  localStorage.removeItem(
+    STORAGE_PHOTO
+  );
+
+  save();
+
+  updatePhotoUI();
+
+  render();
+}
+
+/* =======================================================
+   Resume Input
+======================================================= */
+
+function updateResumeText(value) {
+  resumeText =
+    normalizeText(value);
+
+  save();
+
+  render();
+}
+
+/* =======================================================
+   Import Text File
+======================================================= */
+
+function importTextFile(file) {
+  if (!file) {
+    return;
+  }
+
+  const reader =
+    new FileReader();
+
+  reader.onload = event => {
+    const content =
+      String(
+        event.target.result || ""
+      );
+
+    resumeText =
+      normalizeText(content);
+
+    const input =
+      $("#resumeInput");
+
+    if (input) {
+      input.value =
+        resumeText;
+    }
+
+    save();
+
+    render();
+  };
+
+  reader.readAsText(
+    file,
+    "UTF-8"
+  );
+}
+
+/* =======================================================
+   JSON Import
+======================================================= */
+
+function importJSON(text) {
+  try {
+    const data =
+      JSON.parse(text);
+
+    /*
+     * 支持：
+     * { resume: "..." }
+     * { markdown: "..." }
+     * { content: "..." }
+     */
+
+    if (
+      typeof data === "string"
+    ) {
+      resumeText =
+        normalizeText(data);
+
+      return true;
+    }
+
+    if (
+      typeof data.resume ===
+      "string"
+    ) {
+      resumeText =
+        normalizeText(
+          data.resume
+        );
+
+      return true;
+    }
+
+    if (
+      typeof data.markdown ===
+      "string"
+    ) {
+      resumeText =
+        normalizeText(
+          data.markdown
+        );
+
+      return true;
+    }
+
+    if (
+      typeof data.content ===
+      "string"
+    ) {
+      resumeText =
+        normalizeText(
+          data.content
+        );
+
+      return true;
+    }
+
+    /*
+     * 如果JSON本身就是简历结构，
+     * 尝试转成Markdown。
+     */
+    if (
+      data.name ||
+      data.title ||
+      data.sections
+    ) {
+      let md = "";
+
+      if (data.name) {
+        md +=
+          `# ${data.name}\n`;
+      }
+
+      if (data.title) {
+        md +=
+          `${data.title}\n`;
+      }
+
+      if (
+        Array.isArray(
+          data.contact
+        )
+      ) {
+        md +=
+          `${data.contact.join(
+            " | "
+          )}\n`;
+      }
+
+      if (
+        Array.isArray(
+          data.sections
+        )
+      ) {
+        for (
+          const section
+          of data.sections
+        ) {
+          if (
+            !section
+          ) {
+            continue;
+          }
+
+          if (
+            section.title
+          ) {
+            md +=
+              `\n## ${section.title}\n`;
+          }
+
+          if (
+            Array.isArray(
+              section.content
+            )
+          ) {
+            md +=
+              section.content.join(
+                "\n"
+              ) +
+              "\n";
+          } else if (
+            typeof section.content ===
+            "string"
+          ) {
+            md +=
+              section.content +
+              "\n";
+          }
+        }
+      }
+
+      resumeText =
+        normalizeText(md);
+
+      return true;
+    }
+
+    return false;
+  } catch (error) {
+    console.warn(
+      "JSON parse failed:",
+      error
+    );
+
+    return false;
+  }
+}
+
+/* =======================================================
+   Generic Import
+======================================================= */
+
+function handleImportFile(file) {
+  if (!file) {
+    return;
+  }
+
+  const name =
+    file.name
+      .toLowerCase();
+
+  if (
+    name.endsWith(".json")
+  ) {
+    const reader =
+      new FileReader();
+
+    reader.onload =
+      event => {
+        const success =
+          importJSON(
+            String(
+              event.target.result ||
+              ""
+            )
+          );
+
+        if (!success) {
+          alert(
+            "无法识别该 JSON 简历格式。"
+          );
+
+          return;
+        }
+
+        const input =
+          $("#resumeInput");
+
+        if (input) {
+          input.value =
+            resumeText;
+        }
+
+        save();
+
+        render();
+      };
+
+    reader.readAsText(
+      file,
+      "UTF-8"
+    );
+
+    return;
+  }
+
+  importTextFile(file);
+}
+
+/* =======================================================
+   Export Resume
+======================================================= */
+
+function exportMarkdown() {
+  const blob =
+    new Blob(
+      [resumeText],
+      {
+        type:
+          "text/markdown;charset=utf-8"
+      }
+    );
+
+  const url =
+    URL.createObjectURL(
+      blob
+    );
+
+  const a =
+    document.createElement(
+      "a"
+    );
+
+  a.href = url;
+
+  a.download =
+    "resume.md";
+
+  document.body.appendChild(
+    a
+  );
+
+  a.click();
+
+  a.remove();
+
+  URL.revokeObjectURL(
+    url
+  );
+}
+
+/* =======================================================
+   Export JSON
+======================================================= */
+
+function exportJSON() {
+  const data = {
+    version:
+      VERSION,
+
+    resume:
+      resumeText,
+
+    state: {
+      ...state
+    },
+
+    photo:
+      photoData || ""
+  };
+
+  const blob =
+    new Blob(
+      [
+        JSON.stringify(
+          data,
+          null,
+          2
+        )
+      ],
+      {
+        type:
+          "application/json;charset=utf-8"
+      }
+    );
+
+  const url =
+    URL.createObjectURL(
+      blob
+    );
+
+  const a =
+    document.createElement(
+      "a"
+    );
+
+  a.href =
+    url;
+
+  a.download =
+    "resume.json";
+
+  document.body.appendChild(
+    a
+  );
+
+  a.click();
+
+  a.remove();
+
+  URL.revokeObjectURL(
+    url
+  );
+}
+
+/* =======================================================
+   Demo
+======================================================= */
+
+function loadDemo() {
+  resumeText =
+    DEMO_MD;
+
+  const input =
+    $("#resumeInput");
+
+  if (input) {
+    input.value =
+      resumeText;
+  }
+
+  save();
+
+  render();
+}
+
+/* =======================================================
+   Clear Resume
+======================================================= */
+
+function clearResume() {
+  const confirmed =
+    confirm(
+      "确定清空当前简历内容吗？"
+    );
+
+  if (!confirmed) {
+    return;
+  }
+
+  resumeText = "";
+
+  const input =
+    $("#resumeInput");
+
+  if (input) {
+    input.value = "";
+  }
+
+  save();
+
+  render();
+}
+
+/* =======================================================
+   Drag / Drop
+======================================================= */
+
+function installDropZone() {
+  const zone =
+    $("#dropZone");
+
+  if (!zone) {
+    return;
+  }
+
+  [
+    "dragenter",
+    "dragover"
+  ].forEach(
+    eventName => {
+      zone.addEventListener(
+        eventName,
+        event => {
+          event.preventDefault();
+          event.stopPropagation();
+
+          zone.classList.add(
+            "drag-over"
+          );
+        }
+      );
+    }
+  );
+
+  [
+    "dragleave",
+    "drop"
+  ].forEach(
+    eventName => {
+      zone.addEventListener(
+        eventName,
+        event => {
+          event.preventDefault();
+          event.stopPropagation();
+
+          zone.classList.remove(
+            "drag-over"
+          );
+        }
+      );
+    }
+  );
+
+  zone.addEventListener(
+    "drop",
+    event => {
+      const files =
+        event.dataTransfer &&
+        event.dataTransfer.files;
+
+      if (
+        files &&
+        files.length
+      ) {
+        handleImportFile(
+          files[0]
+        );
+      }
+    }
+  );
+}
+
+/* =======================================================
+   Print Style
+======================================================= */
+
+function installPrintStyle() {
+  const old =
+    $("#resumeflow-print-style");
 
   if (old) {
     old.remove();
@@ -826,540 +2254,68 @@ function installPaginationStyle() {
     );
 
   style.id =
-    "resumeflow-pagination-v131";
+    "resumeflow-print-style";
 
   style.textContent = `
-
-    /* ==================================================
-       外层：
-       只负责排列多个 A4
-    ================================================== */
-
-    #paper.preview-stack {
-
-      width: auto !important;
-
-      min-width: 0 !important;
-
-      min-height: 0 !important;
-
-      height: auto !important;
-
-      max-height: none !important;
-
-      padding: 0 !important;
-
-      margin: 0 !important;
-
-      background: transparent !important;
-
-      box-shadow: none !important;
-
-      border: 0 !important;
-
-      display: flex !important;
-
-      flex-direction: column !important;
-
-      align-items: center !important;
-
-      gap: 24px !important;
-
-      position: relative;
-
-    }
-
-
-    /* ==================================================
-       禁止外层模板效果
-    ================================================== */
-
-    #paper.preview-stack::before {
-
-      display: none !important;
-
-      content: none !important;
-
-    }
-
-
-    /* ==================================================
-       每一个 resume-page
-       才是真正的 A4
-    ================================================== */
-
-    #paper.preview-stack
-    > .resume-page {
-
-      width: var(--paper-w) !important;
-
-      height: var(--paper-h) !important;
-
-      min-width: var(--paper-w) !important;
-
-      min-height: var(--paper-h) !important;
-
-      max-width: var(--paper-w) !important;
-
-      max-height: var(--paper-h) !important;
-
-      flex: 0 0 var(--paper-h) !important;
-
-      box-sizing: border-box !important;
-
-      margin: 0 !important;
-
-      position: relative !important;
-
-      overflow: hidden !important;
-
-      background: #fff !important;
-
-      box-shadow:
-        0 8px 30px #00000012 !important;
-
-    }
-
-
-    /* ==================================================
-       模板样式继续作用于每一页
-    ================================================== */
-
-    #paper.preview-stack
-    > .resume-page.tech {
-
-      border-top:
-        4px solid var(--accent);
-
-    }
-
-
-    #paper.preview-stack
-    > .resume-page.blue
-    .section-title {
-
-      border-bottom-width: 2px;
-
-    }
-
-
-    #paper.preview-stack
-    > .resume-page.blue
-    .name {
-
-      color: var(--accent);
-
-    }
-
-
-    #paper.preview-stack
-    > .resume-page.minimal {
-
-      padding: 48px 58px !important;
-
-    }
-
-
-    #paper.preview-stack
-    > .resume-page.minimal
-    .name {
-
-      font-size: 29px;
-
-    }
-
-
-    #paper.preview-stack
-    > .resume-page.minimal
-    .section-title {
-
-      border: 0;
-
-      padding: 0;
-
-      letter-spacing: .13em;
-
-      color: var(--accent);
-
-    }
-
-
-    #paper.preview-stack
-    > .resume-page.minimal
-    .contact {
-
-      border-bottom:
-        1px solid var(--line);
-
-      padding-bottom: 14px;
-
-    }
-
-
-    #paper.preview-stack
-    > .resume-page.terminal {
-
-      font-family:
-        "SFMono-Regular",
-        Consolas,
-        "Liberation Mono",
-        "PingFang SC",
-        monospace;
-
-    }
-
-
-    #paper.preview-stack
-    > .resume-page.terminal
-    .name {
-
-      font-size: 27px;
-
-    }
-
-
-    #paper.preview-stack
-    > .resume-page.terminal
-    .title {
-
-      color: var(--accent);
-
-    }
-
-
-    #paper.preview-stack
-    > .resume-page.terminal
-    .section-title {
-
-      border-bottom: 0;
-
-      background: var(--accent);
-
-      color: #fff;
-
-      padding: 4px 8px;
-
-      display: inline-block;
-
-      letter-spacing: .04em;
-
-    }
-
-
-    #paper.preview-stack
-    > .resume-page.grayblue
-    .section-title {
-
-      color: #40576b;
-
-      border-bottom-color:
-        #8fa0ad;
-
-    }
-
-
-    #paper.preview-stack
-    > .resume-page.grayblue
-    .name {
-
-      color: #253746;
-
-    }
-
-
-    #paper.preview-stack
-    > .resume-page.stripe {
-
-      padding-left: 58px !important;
-
-    }
-
-
-    #paper.preview-stack
-    > .resume-page.stripe::before {
-
-      content: "";
-
-      position: absolute;
-
-      left: 0;
-
-      top: 0;
-
-      bottom: 0;
-
-      width: 8px;
-
-      background: var(--accent);
-
-    }
-
-
-    #paper.preview-stack
-    > .resume-page.business
-    .name {
-
-      font-weight: 700;
-
-    }
-
-
-    #paper.preview-stack
-    > .resume-page.business
-    .section-title {
-
-      border-bottom:
-        2px solid var(--accent);
-
-      font-size: 12px;
-
-      letter-spacing: .16em;
-
-      padding-bottom: 7px;
-
-    }
-
-
-    #paper.preview-stack
-    > .resume-page.photo
-    .resume-photo {
-
-      width: 92px;
-
-      height: 122px;
-
-    }
-
-
-    /* ==================================================
-       分页保护
-    ================================================== */
-
-    #paper.preview-stack
-    > .resume-page
-    .section {
-
-      break-inside: avoid;
-
-      page-break-inside: avoid;
-
-    }
-
-
-    #paper.preview-stack
-    > .resume-page
-    .section-title {
-
-      break-after: avoid;
-
-      page-break-after: avoid;
-
-    }
-
-
-    #paper.preview-stack
-    > .resume-page
-    .item-head {
-
-      break-inside: avoid;
-
-      page-break-inside: avoid;
-
-    }
-
-
-    #paper.preview-stack
-    > .resume-page
-    li {
-
-      break-inside: avoid;
-
-      page-break-inside: avoid;
-
-    }
-
-
-    /* ==================================================
-       小屏 / iPad
-    ================================================== */
-
-    @media(max-width:760px){
-
-      #paper.preview-stack {
-
-        gap: 16px !important;
-
-      }
-
-    }
-
-
-
-
-    /* ==================================================
-       PRINT
-       V1.3.6
-
-       JS 已经完成分页：
-
-       resume-page 1 = A4 第1页
-       resume-page 2 = A4 第2页
-       resume-page 3 = A4 第3页
-
-       打印阶段只负责：
-       一张 resume-page → 一张 A4
-
-       不让浏览器重新参与分页。
-    ================================================== */
-
-    @page {
-
-      size: A4;
-
-      margin: 0;
-
-    }
-
-
     @media print {
+
+      @page {
+        size: A4;
+        margin: 0;
+      }
 
       html,
       body {
-
-        width: 210mm !important;
-
         margin: 0 !important;
-
         padding: 0 !important;
-
+        width: 210mm !important;
         background: #fff !important;
-
       }
 
-
-      /*
-       * 隐藏应用 UI
-       */
-
-      .top,
-      .left,
-      .right {
-
-        display: none !important;
-
+      body {
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
       }
-
-
-      /*
-       * 中间区域不要再产生任何
-       * padding / flex / 滚动空间
-       */
-
-      .main {
-
-        display: block !important;
-
-        width: 210mm !important;
-
-        min-height: 0 !important;
-
-        margin: 0 !important;
-
-        padding: 0 !important;
-
-      }
-
-
-      .center {
-
-        display: block !important;
-
-        width: 210mm !important;
-
-        min-width: 210mm !important;
-
-        min-height: 0 !important;
-
-        height: auto !important;
-
-        margin: 0 !important;
-
-        padding: 0 !important;
-
-        overflow: visible !important;
-
-      }
-
-
-      /*
-       * #paper 只是页面容器
-       *
-       * 不允许它自己产生 A4 高度、
-       * padding、transform 或分页。
-       */
 
       #paper.preview-stack {
-
         display: block !important;
 
         width: 210mm !important;
-
-        min-width: 210mm !important;
-
         height: auto !important;
 
-        min-height: 0 !important;
-
         margin: 0 !important;
-
         padding: 0 !important;
 
         transform: none !important;
 
         background: #fff !important;
 
-        box-shadow: none !important;
-
         overflow: visible !important;
-
       }
-
-
-      /*
-       * ==================================================
-       * 真正的 A4 页面
-       *
-       * 注意：
-       *
-       * 这里故意不写：
-       *
-       * break-inside: avoid
-       * page-break-inside: avoid
-       *
-       * 防止 Safari 产生空白页。
-       * ==================================================
-       */
 
       #paper.preview-stack
       > .resume-page {
 
-        display: block !important;
-
         width: 210mm !important;
 
-        height: 297mm !important;
+        /*
+         * 不再使用 297mm。
+         * 留出极小的打印边界余量，
+         * 避免浏览器因为物理像素换算
+         * 导致额外空白页。
+         */
+        height: 296mm !important;
 
         min-width: 210mm !important;
-
-        min-height: 297mm !important;
-
         max-width: 210mm !important;
 
-        max-height: 297mm !important;
-
-        box-sizing: border-box !important;
+        min-height: 296mm !important;
+        max-height: 296mm !important;
 
         margin: 0 !important;
+        padding: inherit;
+
+        box-sizing: border-box !important;
 
         position: relative !important;
 
@@ -1372,2443 +2328,513 @@ function installPaginationStyle() {
         transform: none !important;
 
         /*
-         * 唯一的分页控制
+         * 不使用 break-after: page。
+         * 后续页面使用 break-before。
          */
-
-        break-after: page !important;
-
-        page-break-after: always !important;
-
+        break-after: auto !important;
+        page-break-after: auto !important;
       }
 
-
-      /*
-       * 模板 padding
-       */
-
       #paper.preview-stack
-      > .resume-page.tech {
+      > .resume-page:not(:first-child) {
 
-        padding: 52px 62px !important;
-
+        break-before: page !important;
+        page-break-before: always !important;
       }
-
-
-      #paper.preview-stack
-      > .resume-page.minimal {
-
-        padding: 48px 58px !important;
-
-      }
-
-
-      #paper.preview-stack
-      > .resume-page.stripe {
-
-        padding-top: 52px !important;
-
-        padding-right: 62px !important;
-
-        padding-bottom: 52px !important;
-
-        padding-left: 58px !important;
-
-      }
-
-
-      /*
-       * 其它模板使用默认 A4 padding
-       */
-
-      #paper.preview-stack
-      > .resume-page.blue,
-      #paper.preview-stack
-      > .resume-page.terminal,
-      #paper.preview-stack
-      > .resume-page.grayblue,
-      #paper.preview-stack
-      > .resume-page.business,
-      #paper.preview-stack
-      > .resume-page.photo {
-
-        padding: 52px 62px !important;
-
-      }
-
-
-      /*
-       * 最后一页：
-       * 不再强制创建下一页
-       */
 
       #paper.preview-stack
       > .resume-page:last-child {
 
         break-after: auto !important;
-
         page-break-after: auto !important;
-
       }
 
+      #paper.preview-stack
+      .section {
+        break-inside: avoid !important;
+        page-break-inside: avoid !important;
+      }
+
+      #paper.preview-stack
+      .resume-item {
+        break-inside: avoid !important;
+        page-break-inside: avoid !important;
+      }
+
+      #paper.preview-stack
+      .item-head {
+        break-inside: avoid !important;
+        page-break-inside: avoid !important;
+      }
+
+      #paper.preview-stack
+      li {
+        break-inside: avoid !important;
+        page-break-inside: avoid !important;
+      }
+
+      #paper.preview-stack
+      .section-title {
+        break-after: avoid !important;
+        page-break-after: avoid !important;
+      }
+
+      /*
+       * 隐藏编辑区域和控制区域。
+       * 如果你的 index.html 使用这些 ID，
+       * 打印时不会出现。
+       */
+      #app,
+      #editor,
+      #editorPanel,
+      #controlPanel,
+      #sidebar,
+      #toolbar,
+      .toolbar,
+      .sidebar,
+      .editor-panel,
+      .controls,
+      .no-print {
+        /*
+         * 仅在元素不是 paper 的情况下隐藏。
+         */
+      }
+
+      body > *:not(#paper):not(#previewViewport) {
+        /*
+         * 不直接 display:none，
+         * 避免影响现有布局结构。
+         */
+      }
+
+      #previewViewport {
+        width: 210mm !important;
+        height: auto !important;
+
+        margin: 0 !important;
+        padding: 0 !important;
+
+        overflow: visible !important;
+
+        background: #fff !important;
+      }
+
+      /*
+       * 防止浏览器把纸张阴影打印出来。
+       */
+      .paper {
+        box-shadow: none !important;
+      }
     }
-
- 
-  
-
-
   `;
 
-  document.head.appendChild(style);
+  document.head.appendChild(
+    style
+  );
 }
 
-
 /* =======================================================
-   A4 AUTO PAGINATION
-   V1.3.4
-
-   智能分页策略：
-
-   1. 普通 section：
-      - 尽量作为一个整体分页
-
-   2. 工作经历 / 项目经历：
-      - 按公司 / 项目作为最小分页单元
-      - 一个公司尽量保持在同一页
-      - 当前页放不下完整公司时，整体移动到下一页
-      - 允许多个公司放在同一页
-      - 如果一个公司本身超过一页，再允许继续拆分
-
-   3. 防止：
-      - A4 套 A4
-      - 页面大面积空白
-      - 公司标题和公司内容被拆开
+   PDF
 ======================================================= */
 
-function paginatePreview() {
-
-  if (!paper) {
-    return;
-  }
-
-
-  /* =====================================================
-     取得当前已经完成渲染的内容
-  ===================================================== */
-
-  const nodes =
-    Array.from(
-      paper.childNodes
-    ).filter(
-      node =>
-        node.nodeType ===
-        Node.ELEMENT_NODE
-    );
-
-
-  /* =====================================================
-     清空外层容器
-  ===================================================== */
-
-  paper.innerHTML = "";
-
-  paper.className =
-    "preview-stack";
-
-
-  /* =====================================================
-     创建真正的 A4 页面
-  ===================================================== */
-
-  function createPage() {
-
-    const page =
-      document.createElement(
-        "div"
-      );
-
-    page.className =
-      `paper resume-page ${state.template} page-auto`;
-
-
-    const theme =
-      THEMES[state.theme] ||
-      THEMES.blue;
-
-
-    /* 主题 */
-
-    page.style.setProperty(
-      "--accent",
-      theme.main
-    );
-
-    page.style.setProperty(
-      "--accent-soft",
-      theme.light
-    );
-
-    page.style.setProperty(
-      "--resume-accent",
-      theme.main
-    );
-
-    page.style.setProperty(
-      "--resume-accent-light",
-      theme.light
-    );
-
-
-    /* 字号 */
-
-    page.style.setProperty(
-      "--resume-font-size",
-      `${state.fontSize}px`
-    );
-
-
-    /* A4 */
-
-    page.style.boxSizing =
-      "border-box";
-
-    page.style.width =
-      "var(--paper-w)";
-
-    page.style.height =
-      "var(--paper-h)";
-
-    page.style.minWidth =
-      "var(--paper-w)";
-
-    page.style.minHeight =
-      "var(--paper-h)";
-
-    page.style.maxWidth =
-      "var(--paper-w)";
-
-    page.style.maxHeight =
-      "var(--paper-h)";
-
-    page.style.flex =
-      "0 0 var(--paper-h)";
-
-    page.style.margin =
-      "0";
-
-    page.style.position =
-      "relative";
-
-    page.style.overflow =
-      "hidden";
-
-    page.style.background =
-      "#fff";
-
-
-    paper.appendChild(page);
-
-    return page;
-  }
-
-
-  /* =====================================================
-     判断页面是否溢出
-  ===================================================== */
-
-  function isOverflow(page) {
-
-    return (
-      page.scrollHeight >
-      page.clientHeight + 1
-    );
-
-  }
-
-
-  /* =====================================================
-     创建 section 副本
-
-     用于：
-     工作经历跨页时，在下一页重新显示
-     「工作经历」标题。
-  ===================================================== */
-
-  function createSectionShell(section) {
-
-    const shell =
-      document.createElement(
-        "section"
-      );
-
-    shell.className =
-      section.className;
-
-
-    const title =
-      section.querySelector(
-        ".section-title"
-      );
-
-    if (title) {
-
-      shell.appendChild(
-        title.cloneNode(true)
-      );
-
-    }
-
-
-    const body =
-      document.createElement(
-        "div"
-      );
-
-    body.className =
-      "section-body";
-
-
-    shell.appendChild(body);
-
-
-    return {
-      shell,
-      body
-    };
-  }
-
-
-  /* =====================================================
-     将工作经历 / 项目经历拆成「公司 / 项目单元」
-
-     当前 HTML 大致是：
-
-     .section
-       .section-title
-       .section-body
-         .item-head
-         p
-         ul
-         .item-head
-         p
-         ul
-
-     因此：
-
-     item-head
-       +
-     后面的 p / ul
-
-     共同构成一个完整经历单元。
-  ===================================================== */
-
-  function getExperienceUnits(section) {
-
-    const body =
-      section.querySelector(
-        ".section-body"
-      );
-
-    if (!body) {
-      return [];
-    }
-
-
-    const children =
-      Array.from(
-        body.children
-      );
-
-
-    const units = [];
-
-    let current =
-      null;
-
-
-    children.forEach(child => {
-
-      const isHead =
-        child.classList.contains(
-          "item-head"
-        );
-
-
-      if (isHead) {
-
-        current = {
-          nodes: []
-        };
-
-        units.push(
-          current
-        );
-
-      }
-
+function printPDF() {
+  /*
+   * 打印前重新生成分页，
+   * 确保当前字体、字号、模板、
+   * 主题都已经生效。
+   */
+
+  render();
+
+  setTimeout(() => {
+    installPrintStyle();
+
+    setTimeout(() => {
+      window.print();
+    }, 100);
+  }, 200);
+}
+
+/* =======================================================
+   Keyboard Shortcuts
+======================================================= */
+
+function installKeyboardShortcuts() {
+  document.addEventListener(
+    "keydown",
+    event => {
 
       /*
-       * 正常情况下所有内容都会
-       * 跟随最近一个 item-head。
+       * Ctrl / Command + S
        */
-
-      if (current) {
-
-        current.nodes.push(
-          child
-        );
-
-      } else {
-
-        /*
-         * 如果出现没有公司标题的
-         * 前置内容，也不要丢失。
-         */
-
-        current = {
-          nodes: [
-            child
-          ]
-        };
-
-        units.push(
-          current
-        );
-
-      }
-
-    });
-
-
-    return units;
-  }
-
-
-  /* =====================================================
-     将一个完整经历单元加入页面
-
-     返回：
-     true  = 成功放入
-     false = 放不下
-  ===================================================== */
-
-  function tryAppendUnit(
-    page,
-    sectionShell,
-    unit
-  ) {
-
-    const body =
-      sectionShell.body;
-
-
-    unit.nodes.forEach(
-      node => {
-
-        body.appendChild(
-          node
-        );
-
-      }
-    );
-
-
-    /*
-     * 如果整个页面没有溢出，
-     * 说明这个公司完整放下了。
-     */
-
-    if (!isOverflow(page)) {
-
-      return true;
-
-    }
-
-
-    /*
-     * 放不下。
-     *
-     * 把这个公司完整移除，
-     * 交给下一页。
-     */
-
-    unit.nodes.forEach(
-      node => {
-
-        if (
-          node.parentNode === body
-        ) {
-
-          body.removeChild(
-            node
-          );
-
-        }
-
-      }
-    );
-
-
-    return false;
-  }
-
-
-  /* =====================================================
-     处理「工作经历 / 项目经历」
-
-     核心逻辑：
-     公司级别分页
-  ===================================================== */
-
-  function paginateGroupedSection(
-    section,
-    currentPage
-  ) {
-
-    const units =
-      getExperienceUnits(
-        section
-      );
-
-
-    /*
-     * 没有 item-head，
-     * 退回普通 section。
-     */
-
-    if (!units.length) {
-
-      currentPage.appendChild(
-        section
-      );
-
       if (
-        isOverflow(
-          currentPage
-        ) &&
-        currentPage.children.length > 1
+        (event.ctrlKey ||
+          event.metaKey) &&
+        event.key.toLowerCase() ===
+          "s"
       ) {
+        event.preventDefault();
 
-        currentPage.removeChild(
-          section
-        );
+        save();
 
-        currentPage =
-          createPage();
-
-        currentPage.appendChild(
-          section
-        );
-
+        return;
       }
 
-      return currentPage;
-    }
+      /*
+       * Ctrl / Command + P
+       */
+      if (
+        (event.ctrlKey ||
+          event.metaKey) &&
+        event.key.toLowerCase() ===
+          "p"
+      ) {
+        event.preventDefault();
 
+        printPDF();
 
-    let page =
-      currentPage;
-
-
-    let sectionShell =
-      null;
-
-
-    units.forEach(
-      (unit, index) => {
-
-        /*
-         * 当前页面还没有这个 section
-         * 时，先创建标题 + body。
-         */
-
-        if (!sectionShell) {
-
-          const created =
-            createSectionShell(
-              section
-            );
-
-          sectionShell =
-            created;
-
-          page.appendChild(
-            sectionShell.shell
-          );
-
-        }
-
-
-        /*
-         * 尝试把完整公司经历
-         * 放入当前页面。
-         */
-
-        const success =
-          tryAppendUnit(
-            page,
-            sectionShell,
-            unit
-          );
-
-
-        if (success) {
-
-          return;
-
-        }
-
-
-        /*
-         * 当前页面已经有其它内容，
-         * 或者已有公司经历：
-         *
-         * → 当前公司整体移动到下一页
-         */
-
-        if (
-          page.children.length > 1 ||
-          sectionShell.body.children.length > 0
-        ) {
-
-          /*
-           * 当前 section 如果没有任何
-           * 公司内容，只剩标题，则删除。
-           */
-
-          if (
-            sectionShell.body.children.length === 0
-          ) {
-
-            if (
-              sectionShell.shell.parentNode ===
-              page
-            ) {
-
-              page.removeChild(
-                sectionShell.shell
-              );
-
-            }
-
-          }
-
-
-          page =
-            createPage();
-
-
-          sectionShell =
-            createSectionShell(
-              section
-            );
-
-
-          page.appendChild(
-            sectionShell.shell
-          );
-
-
-          /*
-           * 再尝试一次。
-           */
-
-          const secondTry =
-            tryAppendUnit(
-              page,
-              sectionShell,
-              unit
-            );
-
-
-          /*
-           * 如果单个公司本身就超过
-           * 一页，则允许它继续撑满
-           * 当前页面。
-           *
-           * 不制造无限分页。
-           */
-
-          if (!secondTry) {
-
-            console.warn(
-              "ResumeFlow: 单个经历单元超过一页。",
-              unit
-            );
-
-          }
-
-        }
-
+        return;
       }
-    );
-
-
-    return page;
-  }
-
-
-  /* =====================================================
-     普通 section 分页
-  ===================================================== */
-
-  function paginateNormalNode(
-    node,
-    currentPage
-  ) {
-
-    let page =
-      currentPage;
-
-
-    page.appendChild(
-      node
-    );
-
-
-    if (
-      isOverflow(page) &&
-      page.children.length > 1
-    ) {
-
-      page.removeChild(
-        node
-      );
-
-      page =
-        createPage();
-
-      page.appendChild(
-        node
-      );
-
     }
-
-
-    return page;
-  }
-
-
-  /* =====================================================
-     主分页流程
-  ===================================================== */
-
-  let page =
-    createPage();
-
-
-  nodes.forEach(node => {
-
-    /*
-     * 工作经历：
-     * 按公司拆分
-     */
-
-    if (
-      node.classList.contains(
-        "section-experience"
-      )
-    ) {
-
-      page =
-        paginateGroupedSection(
-          node,
-          page
-        );
-
-      return;
-    }
-
-
-    /*
-     * 项目经历：
-     * 按项目拆分
-     */
-
-    if (
-      node.classList.contains(
-        "section-projects"
-      )
-    ) {
-
-      page =
-        paginateGroupedSection(
-          node,
-          page
-        );
-
-      return;
-    }
-
-
-    /*
-     * 其它模块：
-     * 按整个 section 处理
-     */
-
-    page =
-      paginateNormalNode(
-        node,
-        page
-      );
-
-  });
-
+  );
 }
 
-
 /* =======================================================
-   RENDER
-   V1.3.3
-
-   修复：
-   1. 自动分页只执行一次
-   2. 防止 A4 套 A4
-   3. 保持原有模板 / 主题 / 字体 / 缩放功能
-   4. 自动分页完成后再应用缩放
+   Event Binding
 ======================================================= */
 
-function render() {
+function bindEvents() {
 
-  if (!paper) {
-    return;
+  /* -----------------------------------------------
+     Resume Text
+  ----------------------------------------------- */
+
+  const resumeInput =
+    $("#resumeInput");
+
+  if (resumeInput) {
+    resumeInput.addEventListener(
+      "input",
+      event => {
+        resumeText =
+          event.target.value;
+
+        save();
+
+        render();
+      }
+    );
   }
 
-  const data =
-    parseResume(
-      source
-        ? source.value
-        : ""
+  /* -----------------------------------------------
+     Template
+  ----------------------------------------------- */
+
+  const template =
+    $("#templateSelect");
+
+  if (template) {
+    template.addEventListener(
+      "change",
+      event => {
+        setTemplate(
+          event.target.value
+        );
+      }
     );
+  }
+
+  /* -----------------------------------------------
+     Theme
+  ----------------------------------------------- */
 
   const theme =
-    THEMES[state.theme] ||
-    THEMES.blue;
+    $("#themeSelect");
 
-
-  /* =====================================================
-     主题色
-  ===================================================== */
-
-  paper.style.setProperty(
-    "--accent",
-    theme.main
-  );
-
-  paper.style.setProperty(
-    "--accent-soft",
-    theme.light
-  );
-
-  paper.style.setProperty(
-    "--resume-accent",
-    theme.main
-  );
-
-  paper.style.setProperty(
-    "--resume-accent-light",
-    theme.light
-  );
-
-
-  /* =====================================================
-     字号
-  ===================================================== */
-
-  paper.style.setProperty(
-    "--resume-font-size",
-    `${state.fontSize}px`
-  );
-
-
-  /* =====================================================
-     缩放
-  ===================================================== */
-
-  paper.style.setProperty(
-    "--resume-zoom",
-    state.zoom
-  );
-
-
-  /* =====================================================
-     主题按钮
-  ===================================================== */
-
-  if (themes) {
-
-    themes
-      .querySelectorAll(
-        "[data-theme]"
-      )
-      .forEach(button => {
-
-        const name =
-          button.dataset.theme;
-
-        const item =
-          THEMES[name];
-
-        if (!item) {
-          return;
-        }
-
-        button.style.setProperty(
-          "--theme-color",
-          item.main
-        );
-
-        button.classList.toggle(
-          "active",
-          name === state.theme
-        );
-
-      });
-
-  }
-
-
-  /* =====================================================
-     正常渲染原始简历内容
-  ===================================================== */
-
-  paper.className =
-    `paper ${state.template} page-${state.pageMode}`;
-
-  paper.innerHTML =
-    renderHeader(data) +
-    data.sections
-      .map(renderSection)
-      .join("");
-
-
-  /* =====================================================
-     字体
-  ===================================================== */
-
-  applyFont();
-
-
-  /* =====================================================
-     自动分页
-     
-     关键：
-     paginatePreview() 只调用一次。
-
-     之前第二次调用会把已经生成的
-     .resume-page 再次当成内容分页，
-     从而造成：
-
-     A4
-       └── A4
-           └── 简历内容
-  ===================================================== */
-
-  if (
-    state.pageMode ===
-    "auto"
-  ) {
-
-    requestAnimationFrame(() => {
-
-      paginatePreview();
-
-      /*
-       * 分页完成后，
-       * 再给真正的页面列表设置缩放。
-       */
-      applyFont();
-
-      paper.style.transform =
-        `scale(${state.zoom})`;
-
-      updateScaleSpace();
-
-    });
-
-  } else {
-
-    /*
-     * 一页 / 两页模式
-     * 保持原来的行为。
-     */
-
-    paper.style.transform =
-      `scale(${state.zoom})`;
-
-    updateScaleSpace();
-
-  }
-
-}
- 
-
-  /* =======================================================
-     FONT
-  ======================================================= */
-
-  function applyFont() {
-
-    if (!paper) {
-      return;
-    }
-
-    const fonts = {
-
-      pingfang: `
-        -apple-system,
-        BlinkMacSystemFont,
-        "PingFang SC",
-        "Microsoft YaHei",
-        sans-serif
-      `,
-
-      yahei: `
-        "Microsoft YaHei",
-        "PingFang SC",
-        sans-serif
-      `,
-
-      system: `
-        system-ui,
-        -apple-system,
-        BlinkMacSystemFont,
-        "PingFang SC",
-        sans-serif
-      `
-    };
-
-    paper.style.fontFamily =
-      fonts[state.font] ||
-      fonts.pingfang;
-  }
-
-  /* =======================================================
-     SCALE
-  ======================================================= */
-
-  function updateScaleSpace() {
-
-    if (!paper) {
-      return;
-    }
-
-    const z =
-      Number(state.zoom) ||
-      0.8;
-
-    const h =
-      paper.offsetHeight ||
-      1123;
-
-    paper.style.marginBottom =
-      `${-(h * (1 - z))}px`;
-  }
-
-  /* =======================================================
-     STATE NORMALIZE
-  ======================================================= */
-
-  function normalizeState() {
-
-    if (
-      !TEMPLATE_LIST.includes(
-        state.template
-      )
-    ) {
-      state.template =
-        "tech";
-    }
-
-    if (
-      !THEMES[state.theme]
-    ) {
-      state.theme =
-        "blue";
-    }
-
-    if (
-      ![
-        "auto",
-        "one",
-        "two"
-      ].includes(
-        state.pageMode
-      )
-    ) {
-      state.pageMode =
-        "auto";
-    }
-
-    if (
-      ![
-        "pingfang",
-        "yahei",
-        "system"
-      ].includes(
-        state.font
-      )
-    ) {
-      state.font =
-        "pingfang";
-    }
-
-    let fs =
-      Number(
-        state.fontSize
-      );
-
-    if (
-      !Number.isFinite(fs)
-    ) {
-      fs = 13;
-    }
-
-    state.fontSize =
-      Math.max(
-        10,
-        Math.min(
-          18,
-          fs
-        )
-      );
-
-    let z =
-      Number(
-        state.zoom
-      );
-
-    if (
-      !Number.isFinite(z)
-    ) {
-      z = 0.8;
-    }
-
-    state.zoom =
-      Math.max(
-        0.55,
-        Math.min(
-          1,
-          z
-        )
-      );
-
-    state.showPhoto =
-      state.showPhoto !== false;
-  }
-
-  /* =======================================================
-     SAVE
-  ======================================================= */
-
-  function save() {
-
-    try {
-
-      localStorage.setItem(
-        STORAGE.resume,
-        source
-          ? source.value
-          : ""
-      );
-
-      localStorage.setItem(
-        STORAGE.state,
-        JSON.stringify(
-          state
-        )
-      );
-
-      const saveState =
-        $("saveState");
-
-      if (saveState) {
-
-        saveState.textContent =
-          "已自动保存";
-
-      }
-
-    } catch (error) {
-
-      console.warn(
-        "ResumeFlow save error:",
-        error
-      );
-
-    }
-  }
-
-  /* =======================================================
-     LOAD
-  ======================================================= */
-
-  function load() {
-
-    try {
-
-      const savedResume =
-        localStorage.getItem(
-          STORAGE.resume
-        );
-
-      if (
-        savedResume &&
-        source
-      ) {
-
-        source.value =
-          savedResume;
-
-      }
-
-      const savedState =
-        localStorage.getItem(
-          STORAGE.state
-        );
-
-      if (savedState) {
-
-        const parsed =
-          JSON.parse(
-            savedState
-          );
-
-        if (
-          parsed &&
-          typeof parsed ===
-            "object"
-        ) {
-
-          state = {
-            ...DEFAULT_STATE,
-            ...parsed
-          };
-
-        }
-
-      }
-
-    } catch (error) {
-
-      console.warn(
-        "ResumeFlow load error:",
-        error
-      );
-
-      state = {
-        ...DEFAULT_STATE
-      };
-
-    }
-  }
-
-  /* =======================================================
-     SYNC CONTROLS
-  ======================================================= */
-
-  function syncControls() {
-
-    if (templates) {
-
-      templates
-        .querySelectorAll(
-          "[data-t]"
-        )
-        .forEach(button => {
-
-          button.classList.toggle(
-            "active",
-            button.dataset.t ===
-              state.template
-          );
-
-        });
-
-    }
-
-    if (themes) {
-
-      themes
-        .querySelectorAll(
-          "[data-theme]"
-        )
-        .forEach(button => {
-
-          const name =
-            button.dataset.theme;
-
-          const item =
-            THEMES[name];
-
-          button.classList.toggle(
-            "active",
-            name ===
-              state.theme
-          );
-
-          if (item) {
-
-            button.style.setProperty(
-              "--theme-color",
-              item.main
-            );
-
-          }
-
-        });
-
-    }
-
-    if (pages) {
-
-      pages.value =
-        state.pageMode;
-
-    }
-
-    if (photoMode) {
-
-      photoMode.value =
-        state.showPhoto
-          ? "show"
-          : "hide";
-
-    }
-
-    if (font) {
-
-      font.value =
-        state.font;
-
-    }
-
-    if (size) {
-
-      size.min =
-        "10";
-
-      size.max =
-        "18";
-
-      size.step =
-        "0.5";
-
-      size.value =
-        state.fontSize;
-
-    }
-
-    if (sizeVal) {
-
-      sizeVal.textContent =
-        state.fontSize;
-
-    }
-
-    if (zoom) {
-
-      zoom.value =
-        state.zoom;
-
-    }
-
-    if (zoomVal) {
-
-      zoomVal.textContent =
-        `${Math.round(
-          state.zoom * 100
-        )}%`;
-
-    }
-  }
-
-  /* =======================================================
-     PHOTO UI
-  ======================================================= */
-
-  function updatePhotoUI() {
-
-    if (!photoPreview) {
-      return;
-    }
-
-    const photo =
-      localStorage.getItem(
-        STORAGE.photo
-      );
-
-    if (photo) {
-
-      photoPreview.innerHTML = `
-        <img
-          src="${photo}"
-          alt="证件照"
-        />
-      `;
-
-    } else {
-
-      photoPreview.innerHTML =
-        "<span>证件照</span>";
-
-    }
-
-    if (removePhotoBtn) {
-
-      removePhotoBtn.disabled =
-        !photo;
-
-    }
-  }
-
-  /* =======================================================
-     PHOTO
-  ======================================================= */
-
-  function handlePhoto(file) {
-
-    if (!file) {
-      return;
-    }
-
-    const allowed = [
-      "image/jpeg",
-      "image/png",
-      "image/webp"
-    ];
-
-    if (
-      !allowed.includes(
-        file.type
-      )
-    ) {
-
-      alert(
-        "请选择 JPG、PNG 或 WebP 图片。"
-      );
-
-      return;
-    }
-
-    const reader =
-      new FileReader();
-
-    reader.onload =
-      event => {
-
-        try {
-
-          localStorage.setItem(
-            STORAGE.photo,
-            event.target.result
-          );
-
-          updatePhotoUI();
-
-          render();
-
-        } catch {
-
-          alert(
-            "照片保存失败，可能是图片过大。"
-          );
-
-        }
-
-      };
-
-    reader.readAsDataURL(file);
-  }
-
-  /* =======================================================
-     RESUME FILE
-  ======================================================= */
-
-  function handleResumeFile(file) {
-
-    if (!file) {
-      return;
-    }
-
-    const reader =
-      new FileReader();
-
-    reader.onload =
-      event => {
-
-        if (source) {
-
-          source.value =
-            event.target.result ||
-            "";
-
-        }
-
-        save();
-
-        render();
-
-      };
-
-    reader.readAsText(
-      file,
-      "UTF-8"
-    );
-  }
-
-  /* =======================================================
-     TEMPLATE EVENT
-  ======================================================= */
-
-  if (templates) {
-
-    templates.addEventListener(
-      "click",
-      event => {
-
-        const button =
-          event.target.closest(
-            "[data-t]"
-          );
-
-        if (!button) {
-          return;
-        }
-
-        state.template =
-          button.dataset.t;
-
-        syncControls();
-
-        save();
-
-        render();
-
-      }
-    );
-  }
-
-  /* =======================================================
-     THEME EVENT
-  ======================================================= */
-
-  if (themes) {
-
-    themes.addEventListener(
-      "click",
-      event => {
-
-        const button =
-          event.target.closest(
-            "[data-theme]"
-          );
-
-        if (!button) {
-          return;
-        }
-
-        state.theme =
-          button.dataset.theme;
-
-        syncControls();
-
-        save();
-
-        render();
-
-      }
-    );
-  }
-
-  /* =======================================================
-     PAGE MODE
-  ======================================================= */
-
-  if (pages) {
-
-    pages.addEventListener(
+  if (theme) {
+    theme.addEventListener(
       "change",
-      () => {
-
-        state.pageMode =
-          pages.value;
-
-        save();
-
-        render();
-
+      event => {
+        setTheme(
+          event.target.value
+        );
       }
     );
   }
 
-  /* =======================================================
-     PHOTO MODE
-  ======================================================= */
+  /* -----------------------------------------------
+     Page Mode
+  ----------------------------------------------- */
 
-  if (photoMode) {
+  const pageMode =
+    $("#pageModeSelect");
 
-    photoMode.addEventListener(
+  if (pageMode) {
+    pageMode.addEventListener(
       "change",
-      () => {
-
-        state.showPhoto =
-          photoMode.value ===
-          "show";
-
-        save();
-
-        render();
-
+      event => {
+        setPageMode(
+          event.target.value
+        );
       }
     );
   }
 
-  /* =======================================================
-     FONT
-  ======================================================= */
+  /* -----------------------------------------------
+     Font
+  ----------------------------------------------- */
+
+  const font =
+    $("#fontSelect");
 
   if (font) {
-
     font.addEventListener(
       "change",
-      () => {
-
-        state.font =
-          font.value;
-
-        save();
-
-        render();
-
+      event => {
+        setFont(
+          event.target.value
+        );
       }
     );
   }
 
-  /* =======================================================
-     FONT SIZE
-  ======================================================= */
+  /* -----------------------------------------------
+     Font Size
+  ----------------------------------------------- */
 
-  if (size) {
+  const fontSize =
+    $("#fontSize");
 
-    size.min =
-      "10";
-
-    size.max =
-      "18";
-
-    size.step =
-      "0.5";
-
-    size.addEventListener(
+  if (fontSize) {
+    fontSize.addEventListener(
       "input",
-      () => {
-
-        state.fontSize =
-          Number(
-            size.value
-          );
-
-        state.fontSize =
-          Math.max(
-            10,
-            Math.min(
-              18,
-              state.fontSize
-            )
-          );
-
-        if (sizeVal) {
-
-          sizeVal.textContent =
-            state.fontSize;
-
-        }
-
-        save();
-
-        render();
-
+      event => {
+        setFontSize(
+          event.target.value
+        );
       }
     );
   }
 
-  /* =======================================================
-     ZOOM
-  ======================================================= */
+  /* -----------------------------------------------
+     Zoom
+  ----------------------------------------------- */
+
+  const zoom =
+    $("#zoomRange");
 
   if (zoom) {
-
     zoom.addEventListener(
       "input",
-      () => {
-
-        state.zoom =
-          Number(
-            zoom.value
-          );
-
-        if (zoomVal) {
-
-          zoomVal.textContent =
-            `${Math.round(
-              state.zoom * 100
-            )}%`;
-
-        }
-
-        save();
-
-        render();
-
-      }
-    );
-  }
-
-  /* =======================================================
-     SOURCE INPUT
-  ======================================================= */
-
-  if (source) {
-
-    source.addEventListener(
-      "input",
-      () => {
-
-        save();
-
-        render();
-
-      }
-    );
-  }
-
-  /* =======================================================
-     RENDER BUTTON
-  ======================================================= */
-
-  if (renderBtn) {
-
-    renderBtn.addEventListener(
-      "click",
-      () => {
-
-        save();
-
-        render();
-
-      }
-    );
-  }
-
-  /* =======================================================
-     CLEAR
-  ======================================================= */
-
-  if (clearBtn) {
-
-    clearBtn.addEventListener(
-      "click",
-      () => {
-
-        if (
-          !confirm(
-            "确定清空当前简历内容吗？"
-          )
-        ) {
-          return;
-        }
-
-        if (source) {
-
-          source.value =
-            "";
-
-        }
-
-        save();
-
-        render();
-
-      }
-    );
-  }
-
-  /* =======================================================
-     DEMO
-  ======================================================= */
-
-  if (demoBtn) {
-
-    demoBtn.addEventListener(
-      "click",
-      () => {
-
-        if (source) {
-
-          source.value =
-            DEMO_MD;
-
-        }
-
-        save();
-
-        render();
-
-      }
-    );
-  }
-
-  /* =======================================================
-     FILE BUTTON
-  ======================================================= */
-
-  if (
-    fileBtn &&
-    fileInput
-  ) {
-
-    fileBtn.addEventListener(
-      "click",
-      () => {
-
-        fileInput.click();
-
-      }
-    );
-
-    fileInput.addEventListener(
-      "change",
-      () => {
-
-        const file =
-          fileInput.files &&
-          fileInput.files[0];
-
-        handleResumeFile(file);
-
-        fileInput.value =
-          "";
-
-      }
-    );
-  }
-
-  /* =======================================================
-     DRAG DROP
-  ======================================================= */
-
-  if (dropZone) {
-
-    dropZone.addEventListener(
-      "dragover",
       event => {
-
-        event.preventDefault();
-
-        dropZone.classList.add(
-          "drag"
+        setZoom(
+          event.target.value
         );
-
-      }
-    );
-
-    dropZone.addEventListener(
-      "dragleave",
-      () => {
-
-        dropZone.classList.remove(
-          "drag"
-        );
-
-      }
-    );
-
-    dropZone.addEventListener(
-      "drop",
-      event => {
-
-        event.preventDefault();
-
-        dropZone.classList.remove(
-          "drag"
-        );
-
-        const file =
-          event.dataTransfer.files &&
-          event.dataTransfer.files[0];
-
-        handleResumeFile(file);
-
       }
     );
   }
 
-  /* =======================================================
-     PHOTO BUTTON
-  ======================================================= */
+  /* -----------------------------------------------
+     Photo Toggle
+  ----------------------------------------------- */
 
-  if (
-    photoBtn &&
-    photoFile
-  ) {
+  const showPhoto =
+    $("#showPhoto");
 
-    photoBtn.addEventListener(
-      "click",
-      () => {
-
-        photoFile.click();
-
-      }
-    );
-
-    photoFile.addEventListener(
+  if (showPhoto) {
+    showPhoto.addEventListener(
       "change",
-      () => {
+      event => {
+        state.showPhoto =
+          !!event.target.checked;
 
-        const file =
-          photoFile.files &&
-          photoFile.files[0];
-
-        handlePhoto(file);
-
-        photoFile.value =
-          "";
-
-      }
-    );
-  }
-
-  /* =======================================================
-     REMOVE PHOTO
-  ======================================================= */
-
-  if (removePhotoBtn) {
-
-    removePhotoBtn.addEventListener(
-      "click",
-      () => {
-
-        localStorage.removeItem(
-          STORAGE.photo
-        );
+        save();
 
         updatePhotoUI();
 
         render();
-
       }
     );
   }
 
-
-
-  /* =======================================================
-     PRINT STYLE
-     V1.3.7
-
-     修复 Chrome / Safari PDF 空白页问题
-
-     原问题：
-     - resume-page = 297mm
-     - 同时使用 break-after: page
-     - 同时使用 page-break-after: always
-     - 浏览器可能将固定高度页面再次分页
-     - 最终出现：
-         第1页
-         空白页
-         第2页
-         空白页
-         第3页
-
-     新策略：
-     - JS 负责决定第几页
-     - CSS 只负责把第2页以后放到下一张纸
-     - 不使用 break-after
-     - 不使用 page-break-after
-     - resume-page 打印高度使用 296mm
-       给浏览器分页计算留出少量余量
-  ======================================================= */
-
-  function installPrintStyle() {
-
-    const old =
-      document.getElementById(
-        "resumeflow-print-v137"
-      );
-
-    if (old) {
-      old.remove();
-    }
-
-
-    const style =
-      document.createElement(
-        "style"
-      );
-
-    style.id =
-      "resumeflow-print-v137";
-
-
-    style.textContent = `
-
-      /* =================================================
-         A4
-      ================================================= */
-
-      @page {
-
-        size: A4;
-
-        margin: 0;
-
-      }
-
-
-      /* =================================================
-         PRINT
-      ================================================= */
-
-      @media print {
-
-        /* ---------------------------------------------
-           页面基础
-        --------------------------------------------- */
-
-        html,
-        body {
-
-          width: 210mm !important;
-
-          min-width: 210mm !important;
-
-          margin: 0 !important;
-
-          padding: 0 !important;
-
-          background: #fff !important;
-
-          overflow: visible !important;
-
-        }
-
-
-        /* ---------------------------------------------
-           隐藏编辑器 UI
-        --------------------------------------------- */
-
-        .top,
-        .left,
-        .right {
-
-          display: none !important;
-
-        }
-
-
-        /* ---------------------------------------------
-           主布局
-        --------------------------------------------- */
-
-        .main {
-
-          display: block !important;
-
-          width: 210mm !important;
-
-          min-width: 210mm !important;
-
-          height: auto !important;
-
-          min-height: 0 !important;
-
-          margin: 0 !important;
-
-          padding: 0 !important;
-
-        }
-
-
-        .center {
-
-          display: block !important;
-
-          width: 210mm !important;
-
-          min-width: 210mm !important;
-
-          height: auto !important;
-
-          min-height: 0 !important;
-
-          margin: 0 !important;
-
-          padding: 0 !important;
-
-          overflow: visible !important;
-
-        }
-
-
-        /* =================================================
-           一页 / 两页模式
-        ================================================= */
-
-        #paper:not(.preview-stack) {
-
-          width: 210mm !important;
-
-          min-width: 210mm !important;
-
-          height: auto !important;
-
-          min-height: 297mm !important;
-
-          margin: 0 !important;
-
-          padding: 13mm 15mm !important;
-
-          box-sizing: border-box !important;
-
-          transform: none !important;
-
-          box-shadow: none !important;
-
-          background: #fff !important;
-
-          font-size:
-            var(--resume-font-size, 13px)
-            !important;
-
-          line-height: 1.55 !important;
-
-        }
-
-
-        /* =================================================
-           自动分页模式
-
-           #paper
-             ├── resume-page 1
-             ├── resume-page 2
-             └── resume-page 3
-        ================================================= */
-
-        #paper.preview-stack {
-
-          display: block !important;
-
-          width: 210mm !important;
-
-          min-width: 210mm !important;
-
-          height: auto !important;
-
-          min-height: 0 !important;
-
-          margin: 0 !important;
-
-          padding: 0 !important;
-
-          transform: none !important;
-
-          background: #fff !important;
-
-          box-shadow: none !important;
-
-          overflow: visible !important;
-
-        }
-
-
-        /* =================================================
-           每一张真正的 A4 页面
-
-           重要：
-
-           不使用：
-             break-after
-             page-break-after
-
-           只使用：
-             第2页以后 break-before
-        ================================================= */
-
-        #paper.preview-stack
-        > .resume-page {
-
-          display: block !important;
-
-          width: 210mm !important;
-
-          height: 296mm !important;
-
-          min-width: 210mm !important;
-
-          min-height: 296mm !important;
-
-          max-width: 210mm !important;
-
-          max-height: 296mm !important;
-
-          box-sizing: border-box !important;
-
-          margin: 0 !important;
-
-          padding: 13mm 15mm !important;
-
-          position: relative !important;
-
-          overflow: hidden !important;
-
-          background: #fff !important;
-
-          box-shadow: none !important;
-
-          transform: none !important;
-
-          font-size:
-            var(--resume-font-size, 13px)
-            !important;
-
-          line-height: 1.55 !important;
-
-          /*
-           * 明确取消所有 after 分页
-           */
-
-          break-after: auto !important;
-
-          page-break-after: auto !important;
-
-        }
-
-
-        /* =================================================
-           第2页开始：
-
-           只有这里主动告诉浏览器：
-
-           「我要新的一张纸」
-        ================================================= */
-
-        #paper.preview-stack
-        > .resume-page:not(:first-child) {
-
-          break-before: page !important;
-
-          page-break-before: always !important;
-
-        }
-
-
-        /* =================================================
-           最后一页：
-
-           明确禁止 after 分页
-        ================================================= */
-
-        #paper.preview-stack
-        > .resume-page:last-child {
-
-          break-after: auto !important;
-
-          page-break-after: auto !important;
-
-        }
-
-
-        /* =================================================
-           模板 padding
-
-           保持 V1.3 原来的视觉尺寸
-        ================================================= */
-
-        #paper.preview-stack
-        > .resume-page.tech {
-
-          padding:
-            13mm 15mm !important;
-
-        }
-
-
-        #paper.preview-stack
-        > .resume-page.minimal {
-
-          padding:
-            12mm 14mm !important;
-
-        }
-
-
-        #paper.preview-stack
-        > .resume-page.stripe {
-
-          padding-top:
-            13mm !important;
-
-          padding-right:
-            15mm !important;
-
-          padding-bottom:
-            13mm !important;
-
-          padding-left:
-            14.5mm !important;
-
-        }
-
-
-        #paper.preview-stack
-        > .resume-page.blue,
-        #paper.preview-stack
-        > .resume-page.terminal,
-        #paper.preview-stack
-        > .resume-page.grayblue,
-        #paper.preview-stack
-        > .resume-page.business,
-        #paper.preview-stack
-        > .resume-page.photo {
-
-          padding:
-            13mm 15mm !important;
-
-        }
-
-
-        /* =================================================
-           防止内容内部产生额外分页
-        ================================================= */
-
-        #paper.preview-stack
-        .section-title {
-
-          break-after: avoid !important;
-
-          page-break-after: avoid !important;
-
-        }
-
-
-        #paper.preview-stack
-        .item-head {
-
-          break-after: avoid !important;
-
-          page-break-after: avoid !important;
-
-          break-inside: avoid !important;
-
-          page-break-inside: avoid !important;
-
-        }
-
-
-        #paper.preview-stack
-        li {
-
-          break-inside: avoid !important;
-
-          page-break-inside: avoid !important;
-
-        }
-
-
-        /* =================================================
-           证件照
-        ================================================= */
-
-        #paper.preview-stack
-        .resume-photo {
-
-          print-color-adjust: exact !important;
-
-          -webkit-print-color-adjust: exact !important;
-
-        }
-
-      }
-
-    `;
-
-
-    document.head.appendChild(
-      style
-    );
-
-  }
-
-
-
-
-    `;
-
-    document.head.appendChild(
-      style
-    );
-  }
-
-  /* =======================================================
-     PDF
-  ======================================================= */
-
-  if (pdfBtn) {
-
-    pdfBtn.addEventListener(
-      "click",
-      () => {
-
-        installPrintStyle();
-
-        setTimeout(
-          () => {
-
-            window.print();
-
-          },
-          100
+  /* -----------------------------------------------
+     Photo Input
+  ----------------------------------------------- */
+
+  const photoInput =
+    $("#photoInput");
+
+  if (photoInput) {
+    photoInput.addEventListener(
+      "change",
+      event => {
+        const file =
+          event.target.files &&
+          event.target.files[0];
+
+        handlePhotoFile(
+          file
         );
 
+        event.target.value =
+          "";
       }
     );
   }
 
-  /* =======================================================
-     RESIZE
-  ======================================================= */
+  /* -----------------------------------------------
+     Remove Photo
+  ----------------------------------------------- */
 
-  window.addEventListener(
-    "resize",
-    () => {
+  const removePhotoButton =
+    $("#removePhoto");
 
-      updateScaleSpace();
+  if (
+    removePhotoButton
+  ) {
+    removePhotoButton.addEventListener(
+      "click",
+      removePhoto
+    );
+  }
 
-    }
-  );
+  /* -----------------------------------------------
+     Import File
+  ----------------------------------------------- */
 
-  /* =======================================================
-     INITIALIZE
-  ======================================================= */
+  const importInput =
+    $("#importInput");
 
+  if (importInput) {
+    importInput.addEventListener(
+      "change",
+      event => {
+        const file =
+          event.target.files &&
+          event.target.files[0];
+
+        handleImportFile(
+          file
+        );
+
+        event.target.value =
+          "";
+      }
+    );
+  }
+
+  /* -----------------------------------------------
+     Import Button
+  ----------------------------------------------- */
+
+  const importButton =
+    $("#importButton");
+
+  if (
+    importButton &&
+    importInput
+  ) {
+    importButton.addEventListener(
+      "click",
+      () => {
+        importInput.click();
+      }
+    );
+  }
+
+  /* -----------------------------------------------
+     Demo Button
+  ----------------------------------------------- */
+
+  const demoButton =
+    $("#demoButton");
+
+  if (demoButton) {
+    demoButton.addEventListener(
+      "click",
+      loadDemo
+    );
+  }
+
+  /* -----------------------------------------------
+     Clear Button
+  ----------------------------------------------- */
+
+  const clearButton =
+    $("#clearButton");
+
+  if (clearButton) {
+    clearButton.addEventListener(
+      "click",
+      clearResume
+    );
+  }
+
+  /* -----------------------------------------------
+     Markdown Export
+  ----------------------------------------------- */
+
+  const exportMdButton =
+    $("#exportMdButton");
+
+  if (
+    exportMdButton
+  ) {
+    exportMdButton.addEventListener(
+      "click",
+      exportMarkdown
+    );
+  }
+
+  /* -----------------------------------------------
+     JSON Export
+  ----------------------------------------------- */
+
+  const exportJsonButton =
+    $("#exportJsonButton");
+
+  if (
+    exportJsonButton
+  ) {
+    exportJsonButton.addEventListener(
+      "click",
+      exportJSON
+    );
+  }
+
+  /* -----------------------------------------------
+     PDF
+  ----------------------------------------------- */
+
+  const pdfButton =
+    $("#pdfButton");
+
+  if (pdfButton) {
+    pdfButton.addEventListener(
+      "click",
+      printPDF
+    );
+  }
+}
+
+/* =======================================================
+   Drag / Drop
+======================================================= */
+
+installDropZone();
+
+/* =======================================================
+   Init
+======================================================= */
+
+function init() {
   installPaginationStyle();
 
   load();
 
   normalizeState();
 
-  if (size) {
-
-    size.min =
-      "10";
-
-    size.max =
-      "18";
-
-    size.step =
-      "0.5";
-
-  }
+  applyTheme();
 
   syncControls();
 
@@ -3816,48 +2842,59 @@ function render() {
 
   installPrintStyle();
 
+  bindEvents();
+
+  installKeyboardShortcuts();
+
   render();
 
-  /* =======================================================
-     SERVICE WORKER
-  ======================================================= */
-
+  /*
+   * Service Worker
+   */
   if (
-    "serviceWorker" in navigator
+    "serviceWorker" in
+    navigator
   ) {
-
     window.addEventListener(
       "load",
       () => {
-
         navigator.serviceWorker
           .register(
-            "./sw.js?v=1.3.0"
+            "./sw.js?v=1.3.7"
           )
-          .then(reg => {
-
-            reg.update();
-
-            console.log(
-              "ResumeFlow V1.3.0 Service Worker ready"
-            );
-
-          })
-          .catch(error => {
-
-            console.warn(
-              "ResumeFlow Service Worker:",
-              error
-            );
-
-          });
-
+          .then(
+            registration => {
+              console.log(
+                "ResumeFlow SW registered:",
+                registration.scope
+              );
+            }
+          )
+          .catch(
+            error => {
+              console.warn(
+                "ResumeFlow SW registration failed:",
+                error
+              );
+            }
+          );
       }
     );
   }
+}
 
-  console.log(
-    "ResumeFlow V1.3.0 ready"
+/* =======================================================
+   DOM Ready
+======================================================= */
+
+if (
+  document.readyState ===
+  "loading"
+) {
+  document.addEventListener(
+    "DOMContentLoaded",
+    init
   );
-
-})();
+} else {
+  init();
+}
