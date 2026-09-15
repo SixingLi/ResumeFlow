@@ -1,320 +1,97 @@
+
 /* =========================================================
-   ResumeFlow V1.4.2
-
-   核心：
-   1. Markdown / TXT / JSON
-   2. 8模板
-   3. 6主题色
-   4. 证件照
-   5. 稳定A4分页
-   6. 一页 / 两页 / 自动
-   7. A4所见即所得预览
-   8. 独立顶层打印窗口
-   9. localStorage
-   10. PWA
-
-   V1.4.2 修复：
-   - 恢复稳定分页算法
-   - 修复模板按钮
-   - 修复主题按钮
-   - 修复字体 system
-   - 预览与打印彻底分离
+   ResumeFlow V1.4.3
+   修复重点：
+   - 保留 V1.4.2 的模板/主题/导入/证件照/打印功能
+   - 重写分页器：只有在“实际内容无法放入当前页”时才创建下一页
+   - 禁止生成空白中间页
+   - section / block / paragraph / bullet 均可自然跨页
 ========================================================= */
 
 (() => {
-
 "use strict";
-
 
 /* =========================================================
    DOM
 ========================================================= */
+const $ = id => document.getElementById(id);
 
-const $ =
-  id =>
-    document.getElementById(id);
-
-
-const source =
-  $("source");
-
-const paper =
-  $("paper");
-
-const demoBtn =
-  $("demoBtn");
-
-const pdfBtn =
-  $("pdfBtn");
-
-const fileInput =
-  $("file");
-
-const fileBtn =
-  $("fileBtn");
-
-const dropZone =
-  $("drop");
-
-const photoFile =
-  $("photoFile");
-
-const photoBtn =
-  $("photoBtn");
-
-const removePhotoBtn =
-  $("removePhotoBtn");
-
-const photoPreview =
-  $("photoPreview");
-
-const renderBtn =
-  $("renderBtn");
-
-const clearBtn =
-  $("clearBtn");
-
-const templates =
-  $("templates");
-
-const themes =
-  $("themes");
-
-const pages =
-  $("pages");
-
-const photoMode =
-  $("photoMode");
-
-const font =
-  $("font");
-
-const size =
-  $("size");
-
-const sizeVal =
-  $("sizeVal");
-
-const zoom =
-  $("zoom");
-
-const zoomVal =
-  $("zoomVal");
-
-const saveState =
-  $("saveState");
-
+const source = $("source");
+const paper = $("paper");
+const demoBtn = $("demoBtn");
+const pdfBtn = $("pdfBtn");
+const fileInput = $("file");
+const fileBtn = $("fileBtn");
+const dropZone = $("drop");
+const photoFile = $("photoFile");
+const photoBtn = $("photoBtn");
+const removePhotoBtn = $("removePhotoBtn");
+const photoPreview = $("photoPreview");
+const renderBtn = $("renderBtn");
+const clearBtn = $("clearBtn");
+const templates = $("templates");
+const themes = $("themes");
+const pages = $("pages");
+const photoMode = $("photoMode");
+const font = $("font");
+const size = $("size");
+const sizeVal = $("sizeVal");
+const zoom = $("zoom");
+const zoomVal = $("zoomVal");
+const saveState = $("saveState");
 
 /* =========================================================
-   STORAGE
+   STORAGE / STATE
 ========================================================= */
-
 const STORAGE = {
-
-  resume:
-    "resumeflow-resume-v142",
-
-  state:
-    "resumeflow-state-v142",
-
-  photo:
-    "resumeflow-photo-v142"
-
+  resume: "resumeflow-resume-v143",
+  state: "resumeflow-state-v143",
+  photo: "resumeflow-photo-v143"
 };
-
-
-/* =========================================================
-   STATE
-========================================================= */
 
 const DEFAULT_STATE = {
-
-  template:
-    "tech",
-
-  theme:
-    "blue",
-
-  pageMode:
-    "auto",
-
-  showPhoto:
-    true,
-
-  font:
-    "pingfang",
-
-  fontSize:
-    13,
-
-  zoom:
-    .8
-
+  template: "tech",
+  theme: "blue",
+  pageMode: "auto",
+  showPhoto: true,
+  font: "pingfang",
+  fontSize: 13,
+  zoom: .8
 };
 
-
-let state = {
-
-  ...DEFAULT_STATE
-
-};
-
-
-let resumeData =
-  null;
-
+let state = {...DEFAULT_STATE};
+let resumeData = null;
 
 /* =========================================================
-   THEMES
+   THEME
 ========================================================= */
-
 const THEMES = {
-
-  black:{
-
-    main:
-      "#222222",
-
-    light:
-      "#f2f2f2"
-
-  },
-
-  blue:{
-
-    main:
-      "#17365D",
-
-    light:
-      "#eef4fa"
-
-  },
-
-  cyan:{
-
-    main:
-      "#1677FF",
-
-    light:
-      "#edf5ff"
-
-  },
-
-  green:{
-
-    main:
-      "#216E5B",
-
-    light:
-      "#edf7f3"
-
-  },
-
-  gray:{
-
-    main:
-      "#555B66",
-
-    light:
-      "#f2f3f5"
-
-  },
-
-  wine:{
-
-    main:
-      "#7A3030",
-
-    light:
-      "#faf0f0"
-
-  }
-
+  black:{main:"#222222",light:"#f2f2f2"},
+  blue:{main:"#17365D",light:"#eef4fa"},
+  cyan:{main:"#1677FF",light:"#edf5ff"},
+  green:{main:"#216E5B",light:"#edf7f3"},
+  gray:{main:"#555B66",light:"#f2f3f5"},
+  wine:{main:"#7A3030",light:"#faf0f0"}
 };
 
-
-/* =========================================================
-   SECTION ALIASES
-========================================================= */
+const TEMPLATE_CLASSES = [
+  "tech","blue","minimal","terminal",
+  "grayblue","stripe","business","photo"
+];
 
 const SECTION_ALIASES = {
-
-  summary:[
-
-    "个人优势",
-    "个人简介",
-    "个人概述",
-    "简介",
-    "summary",
-    "profile"
-
-  ],
-
-  skills:[
-
-    "核心技能",
-    "专业技能",
-    "技能",
-    "技术栈",
-    "skills",
-    "technical skills"
-
-  ],
-
-  experience:[
-
-    "工作经历",
-    "工作经验",
-    "职业经历",
-    "工作履历",
-    "experience",
-    "work experience"
-
-  ],
-
-  projects:[
-
-    "项目经历",
-    "项目经验",
-    "项目",
-    "projects",
-    "project experience"
-
-  ],
-
-  education:[
-
-    "教育背景",
-    "教育经历",
-    "学历",
-    "education"
-
-  ],
-
-  certificates:[
-
-    "证书",
-    "资格证书",
-    "certificates"
-
-  ],
-
-  awards:[
-
-    "获奖经历",
-    "奖项",
-    "荣誉",
-    "awards"
-
-  ]
-
+  summary:["个人优势","个人简介","个人概述","简介","summary","profile"],
+  skills:["核心技能","专业技能","技能","技术栈","skills","technical skills"],
+  experience:["工作经历","工作经验","职业经历","工作履历","experience","work experience"],
+  projects:["项目经历","项目经验","项目","projects","project experience"],
+  education:["教育背景","教育经历","学历","education"],
+  certificates:["证书","资格证书","certificates"],
+  awards:["获奖经历","奖项","荣誉","awards"]
 };
-
 
 /* =========================================================
    DEMO
 ========================================================= */
-
 const DEMO_MD = `# 李思杏
 
 ADAS软件工程师
@@ -390,3351 +167,1074 @@ ADAS软件工程师
 **计算机科学与技术｜本科｜2017.09 – 2021.06**
 `;
 
-
 /* =========================================================
-   TEXT
+   TEXT HELPERS
 ========================================================= */
-
 function clean(text){
-
   return String(text || "")
     .replace(/\r/g,"")
     .replace(/\u00a0/g," ")
     .trim();
-
 }
-
 
 function stripMD(text){
-
   return String(text || "")
-
-    .replace(
-      /^#{1,6}\s*/,
-      ""
-    )
-
-    .replace(
-      /\*\*(.*?)\*\*/g,
-      "$1"
-    )
-
-    .replace(
-      /__(.*?)__/g,
-      "$1"
-    )
-
-    .replace(
-      /`(.*?)`/g,
-      "$1"
-    )
-
-    .replace(
-      /\[(.*?)\]\(.*?\)/g,
-      "$1"
-    )
-
+    .replace(/^#{1,6}\s*/,"")
+    .replace(/\*\*(.*?)\*\*/g,"$1")
+    .replace(/__(.*?)__/g,"$1")
+    .replace(/`(.*?)`/g,"$1")
+    .replace(/$begin:math:display$\(\.\*\?\)$end:math:display$$begin:math:text$\.\*\?$end:math:text$/g,"$1")
     .trim();
-
 }
-
 
 function escapeHTML(text){
-
   return String(text || "")
-
-    .replace(
-      /&/g,
-      "&amp;"
-    )
-
-    .replace(
-      /</g,
-      "&lt;"
-    )
-
-    .replace(
-      />/g,
-      "&gt;"
-    )
-
-    .replace(
-      /"/g,
-      "&quot;"
-    )
-
-    .replace(
-      /'/g,
-      "&#039;"
-    );
-
+    .replace(/&/g,"&amp;")
+    .replace(/</g,"&lt;")
+    .replace(/>/g,"&gt;")
+    .replace(/"/g,"&quot;")
+    .replace(/'/g,"&#039;");
 }
-
 
 function normalizeHeading(text){
-
-  return stripMD(text)
-
-    .replace(
-      /[：:]/g,
-      ""
-    )
-
-    .trim()
-
-    .toLowerCase();
-
+  return stripMD(text).replace(/[：:]/g,"").trim().toLowerCase();
 }
-
 
 function getSectionType(title){
-
-  const normalized =
-    normalizeHeading(title);
-
-
-  for(
-    const [
-      type,
-      aliases
-    ]
-    of Object.entries(
-      SECTION_ALIASES
-    )
-  ){
-
-    if(
-      aliases.some(
-        alias =>
-          normalizeHeading(alias)
-          === normalized
-      )
-    ){
-
+  const normalized = normalizeHeading(title);
+  for(const [type,aliases] of Object.entries(SECTION_ALIASES)){
+    if(aliases.some(alias => normalizeHeading(alias) === normalized)){
       return type;
-
     }
-
   }
-
-
   return null;
-
 }
 
-
 /* =========================================================
-   MARKDOWN
+   MARKDOWN / JSON
 ========================================================= */
-
 function parseMarkdown(text){
+  const lines = clean(text).split("\n");
+  const result = {name:"",title:"",contact:"",sections:[]};
+  let current = null;
+  let currentBlock = null;
+  const beforeFirstSection = [];
 
-  const lines =
-    clean(text)
-      .split("\n");
+  for(const raw of lines){
+    const line = raw.trim();
+    if(!line) continue;
 
-
-  const result = {
-
-    name:
-      "",
-
-    title:
-      "",
-
-    contact:
-      "",
-
-    sections:
-      []
-
-  };
-
-
-  let current =
-    null;
-
-
-  let currentBlock =
-    null;
-
-
-  const beforeFirstSection =
-    [];
-
-
-  for(
-    const raw
-    of lines
-  ){
-
-    const line =
-      raw.trim();
-
-
-    if(!line){
-      continue;
-    }
-
-
-    const heading =
-      line.match(
-        /^(#{1,6})\s+(.+)$/
-      );
-
+    const heading = line.match(/^(#{1,6})\s+(.+)$/);
 
     if(heading){
+      const level = heading[1].length;
+      const title = stripMD(heading[2]);
 
-      const level =
-        heading[1].length;
-
-
-      const title =
-        stripMD(
-          heading[2]
-        );
-
-
-      if(
-        level === 1 &&
-        !result.name
-      ){
-
-        result.name =
-          title;
-
+      if(level === 1 && !result.name){
+        result.name = title;
         continue;
-
       }
 
-
-      const type =
-        getSectionType(
-          title
-        );
-
+      const type = getSectionType(title);
 
       if(type){
-
-        current = {
-
-          type,
-
-          title,
-
-          blocks:[]
-
-        };
-
-
-        result.sections.push(
-          current
-        );
-
-
-        currentBlock =
-          null;
-
-
+        current = {type,title,blocks:[]};
+        result.sections.push(current);
+        currentBlock = null;
         continue;
-
       }
 
-
-      if(
-        current &&
-        level >= 3
-      ){
-
-        currentBlock = {
-
-          head:
-            title,
-
-          lines:
-            [],
-
-          bullets:
-            []
-
-        };
-
-
-        current.blocks.push(
-          currentBlock
-        );
-
-
+      if(current && level >= 3){
+        currentBlock = {head:title,lines:[],bullets:[]};
+        current.blocks.push(currentBlock);
         continue;
-
       }
 
-
-      if(!current){
-
-        beforeFirstSection.push(
-          title
-        );
-
-      }
-
-
+      if(!current) beforeFirstSection.push(title);
       continue;
-
     }
-
 
     if(!current){
-
-      beforeFirstSection.push(
-        stripMD(line)
-      );
-
+      beforeFirstSection.push(stripMD(line));
       continue;
-
     }
 
-
-    if(
-      /^[-*•]\s+/.test(line)
-    ){
-
+    if(/^[-*•]\s+/.test(line)){
       if(!currentBlock){
-
-        currentBlock = {
-
-          head:
-            "",
-
-          lines:
-            [],
-
-          bullets:
-            []
-
-        };
-
-
-        current.blocks.push(
-          currentBlock
-        );
-
+        currentBlock = {head:"",lines:[],bullets:[]};
+        current.blocks.push(currentBlock);
       }
-
-
       currentBlock.bullets.push(
-
-        stripMD(
-
-          line.replace(
-            /^[-*•]\s+/,
-            ""
-          )
-
-        )
-
+        stripMD(line.replace(/^[-*•]\s+/,""))
       );
-
-
       continue;
-
     }
-
 
     if(!currentBlock){
-
-      currentBlock = {
-
-        head:
-          "",
-
-        lines:
-          [],
-
-        bullets:
-          []
-
-      };
-
-
-      current.blocks.push(
-        currentBlock
-      );
-
+      currentBlock = {head:"",lines:[],bullets:[]};
+      current.blocks.push(currentBlock);
     }
 
-
-    currentBlock.lines.push(
-      stripMD(line)
-    );
-
+    currentBlock.lines.push(stripMD(line));
   }
 
-
-  if(!result.name){
-
-    result.name =
-      beforeFirstSection.shift()
-      ||
-      "姓名";
-
-  }
-
-
-  if(!result.title){
-
-    result.title =
-      beforeFirstSection.shift()
-      ||
-      "";
-
-  }
-
-
-  if(!result.contact){
-
-    result.contact =
-      beforeFirstSection.join(
-        " | "
-      );
-
-  }
-
+  if(!result.name) result.name = beforeFirstSection.shift() || "姓名";
+  if(!result.title) result.title = beforeFirstSection.shift() || "";
+  if(!result.contact) result.contact = beforeFirstSection.join(" | ");
 
   return result;
-
 }
-
-
-/* =========================================================
-   JSON
-========================================================= */
 
 function parseJSON(text){
+  const obj = JSON.parse(text);
 
-  const obj =
-    JSON.parse(text);
+  if(typeof obj === "string") return parseMarkdown(obj);
 
-
-  if(
-    typeof obj ===
-    "string"
-  ){
-
-    return parseMarkdown(
-      obj
-    );
-
+  if(obj.markdown || obj.content || obj.resume){
+    return parseMarkdown(obj.markdown || obj.content || obj.resume);
   }
-
-
-  if(
-    obj.markdown ||
-    obj.content ||
-    obj.resume
-  ){
-
-    return parseMarkdown(
-
-      obj.markdown ||
-      obj.content ||
-      obj.resume
-
-    );
-
-  }
-
 
   const result = {
-
-    name:
-      obj.name ||
-      obj.姓名 ||
-      "姓名",
-
-    title:
-      obj.title ||
-      obj.职位 ||
-      obj.position ||
-      "",
-
-    contact:
-      obj.contact ||
-      obj.联系方式 ||
-      "",
-
-    sections:
-      []
-
+    name: obj.name || obj.姓名 || "姓名",
+    title: obj.title || obj.职位 || obj.position || "",
+    contact: obj.contact || obj.联系方式 || "",
+    sections:[]
   };
 
-
   const sectionMap = [
+    ["summary","个人优势"],
+    ["skills","核心技能"],
+    ["experience","工作经历"],
+    ["projects","项目经历"],
+    ["education","教育背景"],
+    ["certificates","证书"],
+    ["awards","获奖经历"]
+      ];
 
-    [
-      "summary",
-      "个人优势"
-    ],
+  for(const [key,title] of sectionMap){
+    if(!obj[key]) continue;
 
-    [
-      "skills",
-      "核心技能"
-    ],
+    const value = Array.isArray(obj[key]) ? obj[key] : [obj[key]];
+    const section = {type:key,title,blocks:[]};
 
-    [
-      "experience",
-      "工作经历"
-    ],
-
-    [
-      "projects",
-      "项目经历"
-    ],
-
-    [
-      "education",
-      "教育背景"
-    ],
-
-    [
-      "certificates",
-      "证书"
-    ],
-
-    [
-      "awards",
-      "获奖经历"
-    ]
-
-  ];
-
-
-  for(
-    const [
-      key,
-      title
-    ]
-    of sectionMap
-  ){
-
-    if(!obj[key]){
-      continue;
+    for(const item of value){
+      if(typeof item === "string"){
+        section.blocks.push({head:"",lines:[],bullets:[item]});
+      }else if(item && typeof item === "object"){
+        section.blocks.push({
+          head:item.title || item.name || item.公司 || item.项目 || "",
+          lines:Array.isArray(item.lines) ? item.lines : [],
+          bullets:Array.isArray(item.bullets) ? item.bullets : []
+        });
+      }
     }
 
-
-    const value =
-      Array.isArray(
-        obj[key]
-      )
-      ?
-      obj[key]
-      :
-      [obj[key]];
-
-
-    const section = {
-
-      type:
-        key,
-
-      title:
-        title,
-
-      blocks:
-        []
-
-    };
-
-
-    for(
-      const item
-      of value
-    ){
-
-      if(
-        typeof item ===
-        "string"
-      ){
-
-        section.blocks.push({
-
-          head:
-            "",
-
-          lines:
-            [],
-
-          bullets:
-            [item]
-
-        });
-
-
-        continue;
-
-      }
-
-
-      if(
-        item &&
-        typeof item ===
-        "object"
-      ){
-
-        section.blocks.push({
-
-          head:
-            item.title ||
-            item.name ||
-            item.公司 ||
-            item.项目 ||
-            "",
-
-          lines:
-            Array.isArray(
-              item.lines
-            )
-            ?
-            item.lines
-            :
-            [],
-
-          bullets:
-            Array.isArray(
-              item.bullets
-            )
-            ?
-            item.bullets
-            :
-            []
-
-        });
-
-      }
-
-    }
-
-
-    result.sections.push(
-      section
-    );
-
+    result.sections.push(section);
   }
-
 
   return result;
-
 }
-
-
-/* =========================================================
-   INPUT
-========================================================= */
 
 function parseInput(text){
-
-  const trimmed =
-    clean(text);
-
+  const trimmed = clean(text);
 
   if(!trimmed){
-
-    return {
-
-      name:
-        "姓名",
-
-      title:
-        "",
-
-      contact:
-        "",
-
-      sections:
-        []
-
-    };
-
+    return {name:"姓名",title:"",contact:"",sections:[]};
   }
 
-
-  if(
-    trimmed.startsWith("{") ||
-    trimmed.startsWith("[")
-  ){
-
+  if(trimmed.startsWith("{") || trimmed.startsWith("[")){
     try{
-
-      return parseJSON(
-        trimmed
-      );
-
+      return parseJSON(trimmed);
     }catch(error){
-
-      console.warn(
-        "JSON解析失败，按Markdown处理",
-        error
-      );
-
+      console.warn("JSON解析失败，按Markdown处理",error);
     }
-
   }
 
-
-  return parseMarkdown(
-    trimmed
-  );
-
+  return parseMarkdown(trimmed);
 }
 
-
 /* =========================================================
-   HTML
+   HTML BUILDERS
 ========================================================= */
-
 function blockHTML(block){
-
-  let html =
-    "";
-
+  let html = "";
 
   if(block.head){
-
-    html +=
-
-      `<div class="item-head">` +
-      `${escapeHTML(block.head)}` +
-      `</div>`;
-
+    html += `<div class="item-head">${escapeHTML(block.head)}</div>`;
   }
 
+  for(const line of block.lines || []){
+    if(!line) continue;
+    html += `<div class="paragraph">${escapeHTML(line)}</div>`;
+  }
 
-  for(
-    const line
-    of block.lines || []
-  ){
-
-    if(!line){
-      continue;
+  if(block.bullets && block.bullets.length){
+    html += "<ul>";
+    for(const bullet of block.bullets){
+      html += `<li>${escapeHTML(bullet)}</li>`;
     }
-
-
-    html +=
-
-      `<div class="paragraph">` +
-      `${escapeHTML(line)}` +
-      `</div>`;
-
+    html += "</ul>";
   }
-
-
-  if(
-    block.bullets &&
-    block.bullets.length
-  ){
-
-    html +=
-      "<ul>";
-
-
-    for(
-      const bullet
-      of block.bullets
-    ){
-
-      html +=
-
-        `<li>` +
-        `${escapeHTML(bullet)}` +
-        `</li>`;
-
-    }
-
-
-    html +=
-      "</ul>";
-
-  }
-
 
   return html;
-
 }
-
 
 function sectionShell(title){
+  const section = document.createElement("section");
+  section.className = "section";
 
-  const section =
-    document.createElement(
-      "section"
-    );
+  const titleEl = document.createElement("div");
+  titleEl.className = "section-title";
+  titleEl.textContent = title;
 
+  const body = document.createElement("div");
+  body.className = "section-body";
 
-  section.className =
-    "section";
-
-
-  const titleEl =
-    document.createElement(
-      "div"
-    );
-
-
-  titleEl.className =
-    "section-title";
-
-
-  titleEl.textContent =
-    title;
-
-
-  const body =
-    document.createElement(
-      "div"
-    );
-
-
-  body.className =
-    "section-body";
-
-
-  section.appendChild(
-    titleEl
-  );
-
-
-  section.appendChild(
-    body
-  );
-
+  section.appendChild(titleEl);
+  section.appendChild(body);
 
   return section;
-
 }
-
-
-/* =========================================================
-   HEADER
-========================================================= */
 
 function headerHTML(data){
+  let photo = "";
+  const photoData = getPhoto();
 
-  let photo =
-    "";
-
-
-  const photoData =
-    getPhoto();
-
-
-  if(
-    state.showPhoto &&
-    photoData
-  ){
-
+  if(state.showPhoto && photoData){
     photo = `
-
       <div class="resume-photo">
-
-        <img
-          src="${photoData}"
-          alt="证件照"
-        >
-
+        <img src="${photoData}" alt="证件照">
       </div>
-
     `;
-
   }
-
 
   return `
-
     <div class="paper-header">
-
       <div class="identity">
-
-        <div class="name">
-
-          ${escapeHTML(data.name)}
-
-        </div>
-
-
-        ${
-          data.title
-
-          ?
-
-          `
-
-            <div class="title">
-
-              ${escapeHTML(data.title)}
-
-            </div>
-
-          `
-
-          :
-
-          ""
-
-        }
-
-
-        ${
-          data.contact
-
-          ?
-
-          `
-
-            <div class="contact">
-
-              ${escapeHTML(data.contact)}
-
-            </div>
-
-          `
-
-          :
-
-          ""
-
-        }
-
+        <div class="name">${escapeHTML(data.name)}</div>
+        ${data.title ? `<div class="title">${escapeHTML(data.title)}</div>` : ""}
+        ${data.contact ? `<div class="contact">${escapeHTML(data.contact)}</div>` : ""}
       </div>
-
-
       ${photo}
-
     </div>
-
   `;
-
 }
-
-
-/* =========================================================
-   PAGE
-========================================================= */
 
 function createPage(pageNumber){
+  const page = document.createElement("div");
+  page.className = `resume-page ${state.template}`;
 
-  const page =
-    document.createElement(
-      "div"
-    );
+  const theme = THEMES[state.theme] || THEMES.blue;
+  page.style.setProperty("--accent",theme.main);
+  page.style.setProperty("--accent-soft",theme.light);
 
+  if(state.pageMode === "one") page.classList.add("page-one");
+  if(state.pageMode === "two") page.classList.add("page-two");
 
-  page.className =
-    `resume-page ${state.template}`;
+  const pageNumberEl = document.createElement("div");
+  pageNumberEl.className = "page-number";
+  pageNumberEl.textContent = pageNumber;
 
-
-  const theme =
-    THEMES[state.theme]
-    ||
-    THEMES.blue;
-
-
-  page.style.setProperty(
-    "--accent",
-    theme.main
-  );
-
-
-  page.style.setProperty(
-    "--accent-soft",
-    theme.light
-  );
-
-
-  if(
-    state.pageMode ===
-    "one"
-  ){
-
-    page.classList.add(
-      "page-one"
-    );
-
-  }
-
-
-  if(
-    state.pageMode ===
-    "two"
-  ){
-
-    page.classList.add(
-      "page-two"
-    );
-
-  }
-
-
-  const pageNumberEl =
-    document.createElement(
-      "div"
-    );
-
-
-  pageNumberEl.className =
-    "page-number";
-
-
-  pageNumberEl.textContent =
-    pageNumber;
-
-
-  page.appendChild(
-    pageNumberEl
-  );
-
-
+  page.appendChild(pageNumberEl);
   return page;
-
 }
 
-
-/* =========================================================
-   HEADER
-========================================================= */
-
-function addHeader(
-  page,
-  data
-){
-
-  const wrapper =
-    document.createElement(
-      "div"
-    );
-
-
-  wrapper.innerHTML =
-    headerHTML(
-      data
-    );
-
-
-  page.insertBefore(
-    wrapper.firstElementChild,
-    page.firstChild
-  );
-
+function addHeader(page,data){
+  const wrapper = document.createElement("div");
+  wrapper.innerHTML = headerHTML(data);
+  page.insertBefore(wrapper.firstElementChild,page.firstChild);
 }
-
-
-/* =========================================================
-   OVERFLOW
-========================================================= */
 
 function isOverflow(page){
-
-  return (
-
-    page.scrollHeight >
-
-    page.clientHeight + 2
-
-  );
-
+  return page.scrollHeight > page.clientHeight + 2;
 }
 
+function addSection(page,section){
+  const el = sectionShell(section.title);
+  const body = el.querySelector(".section-body");
+
+  for(const block of section.blocks){
+    const holder = document.createElement("div");
+    holder.innerHTML = blockHTML(block);
+
+    while(holder.firstElementChild){
+      body.appendChild(holder.firstElementChild);
+    }
+  }
+
+  page.appendChild(el);
+  return el;
+}
 
 /* =========================================================
-   ADD SECTION
+   NEW PAGINATION ENGINE
+   原则：
+   1. 不提前创建“可能需要”的页面
+   2. 只有真实内容放不下时才创建下一页
+   3. 每次创建下一页后，立即放入触发分页的内容
+   4. 因此不会留下空白中间页
 ========================================================= */
 
-function addSection(
-  page,
-  section
-){
+function makeNewPage(pagesOut){
+  const page = createPage(pagesOut.length + 1);
+  paper.appendChild(page);
+  pagesOut.push(page);
+  return page;
+}
 
-  const el =
-    sectionShell(
-      section.title
-    );
+function ensureSectionOnPage(page,section){
+  const existing = page.querySelector(
+    `.section[data-section-type="${CSS.escape(section.type || section.title)}"]`
+  );
 
+  if(existing) return existing;
 
-  const body =
-    el.querySelector(
-      ".section-body"
-    );
+  const sectionEl = sectionShell(section.title);
+  sectionEl.dataset.sectionType = section.type || section.title;
+  page.appendChild(sectionEl);
+  return sectionEl;
+}
 
+function sectionHasContent(sectionEl){
+  const body = sectionEl.querySelector(".section-body");
+  return !!body && body.children.length > 0;
+}
 
-  for(
-    const block
-    of section.blocks
-  ){
+function removeEmptySection(sectionEl){
+  if(sectionEl && !sectionHasContent(sectionEl)){
+    sectionEl.remove();
+    return true;
+  }
+  return false;
+}
 
-    const holder =
-      document.createElement(
-        "div"
-      );
+function appendUnit(page,sectionEl,unit){
+  const body = sectionEl.querySelector(".section-body");
+  body.appendChild(unit);
 
+  if(!isOverflow(page)) return true;
 
-    holder.innerHTML =
-      blockHTML(
-        block
-      );
+  unit.remove();
+  return false;
+}
 
+function appendBlockUnits(pagesOut,currentPage,section,block){
+  let page = currentPage;
+  let sectionEl = ensureSectionOnPage(page,section);
 
-    while(
-      holder.firstElementChild
-    ){
+  const createContinuationPage = () => {
+    page = makeNewPage(pagesOut);
+    sectionEl = ensureSectionOnPage(page,section);
+  };
 
-      body.appendChild(
-        holder.firstElementChild
-      );
+  /* item-head */
+  if(block.head){
+    const head = document.createElement("div");
+    head.className = "item-head";
+    head.textContent = block.head;
 
+    if(!appendUnit(page,sectionEl,head)){
+      removeEmptySection(sectionEl);
+      createContinuationPage();
+      appendUnit(page,sectionEl,head);
+    }
+  }
+
+  /* paragraphs */
+  for(const line of block.lines || []){
+    if(!line) continue;
+
+    const paragraph = document.createElement("div");
+    paragraph.className = "paragraph";
+    paragraph.textContent = line;
+
+    if(!appendUnit(page,sectionEl,paragraph)){
+      removeEmptySection(sectionEl);
+      createContinuationPage();
+
+      if(!appendUnit(page,sectionEl,paragraph)){
+        /* 极端超长段落：直接保留，避免产生空页/死循环 */
+        sectionEl.querySelector(".section-body").appendChild(paragraph);
+      }
+    }
+  }
+
+  /* bullets */
+  for(const bullet of block.bullets || []){
+    let list = sectionEl.querySelector(".section-body > ul");
+
+    if(!list){
+      list = document.createElement("ul");
+      sectionEl.querySelector(".section-body").appendChild(list);
+
+      if(isOverflow(page)){
+        list.remove();
+        removeEmptySection(sectionEl);
+        createContinuationPage();
+
+        list = document.createElement("ul");
+        sectionEl.querySelector(".section-body").appendChild(list);
+      }
     }
 
+    const li = document.createElement("li");
+    li.textContent = bullet;
+    list.appendChild(li);
+
+    if(isOverflow(page)){
+      li.remove();
+
+      if(!list.children.length) list.remove();
+
+      /*
+       * 当前页可能只有 section 标题；
+       * 不允许在这里留下空白页。
+       */
+      if(!sectionHasContent(sectionEl)){
+        removeEmptySection(sectionEl);
+      }
+
+      createContinuationPage();
+
+      list = sectionEl.querySelector(".section-body > ul");
+
+      if(!list){
+        list = document.createElement("ul");
+        sectionEl.querySelector(".section-body").appendChild(list);
+      }
+
+      list.appendChild(li);
+
+      if(isOverflow(page)){
+        /*
+         * 单条 bullet 极端过长时直接保留，
+         * 不再创建更多空页。
+         */
+        return page;
+      }
+    }
   }
 
-
-  page.appendChild(
-    el
-  );
-
-
-  return el;
-
+  return page;
 }
-
-
-/* =========================================================
-   ADD BLOCK
-========================================================= */
-
-function addBlockToSection(
-  sectionEl,
-  block
-){
-
-  const body =
-    sectionEl.querySelector(
-      ".section-body"
-    );
-
-
-  const holder =
-    document.createElement(
-      "div"
-    );
-
-
-  holder.innerHTML =
-    blockHTML(
-      block
-    );
-
-
-  while(
-    holder.firstElementChild
-  ){
-
-    body.appendChild(
-      holder.firstElementChild
-    );
-
-  }
-
-}
-
-
-/* =========================================================
-   PAGINATION
-   恢复 V1.3.9 稳定分页结构
-========================================================= */
 
 function paginate(){
+  if(!resumeData) return;
 
-  if(!resumeData){
+  paper.innerHTML = "";
+  paper.className = "paper preview-stack";
 
-    return;
+  const pagesOut = [];
+  let currentPage = makeNewPage(pagesOut);
 
-  }
+  addHeader(currentPage,resumeData);
 
-
-  paper.innerHTML =
-    "";
-
-
-  paper.className =
-    "paper preview-stack";
-
-
-  const pagesOut =
-    [];
-
-
-  let currentPage =
-    createPage(
-      1
-    );
-
-
-  paper.appendChild(
-    currentPage
-  );
-
-
-  pagesOut.push(
-    currentPage
-  );
-
-
-  addHeader(
-    currentPage,
-    resumeData
-  );
-
-
-  /*
-   * 一页模式
-   */
-
-  if(
-    state.pageMode ===
-    "one"
-  ){
-
-    for(
-      const section
-      of resumeData.sections
-    ){
-
-      addSection(
-        currentPage,
-        section
-      );
-
+  /* 一页模式：保持原行为，内容超出直接裁切 */
+  if(state.pageMode === "one"){
+    for(const section of resumeData.sections){
+      addSection(currentPage,section);
     }
-
-
     finishPagination();
-
     return;
-
   }
 
-
-  /*
-   * 自动 / 两页
-   */
-
-  let pageIndex =
-    1;
-
-
-  for(
-    const section
-    of resumeData.sections
-  ){
-
-    const candidate =
-      addSection(
-        currentPage,
-        section
-      );
-
-
+  for(const section of resumeData.sections){
     /*
-     * 整个 section 可以放下。
+     * 先尝试整个 section。
+     * 如果放不下，再删除并按 block 增量分页。
      */
+    const candidate = addSection(currentPage,section);
 
-    if(
-      !isOverflow(
-        currentPage
-      )
-    ){
-
+    if(!isOverflow(currentPage)){
       continue;
-
     }
 
+    candidate.remove();
 
     /*
-     * 整个 section 放不下。
+     * 如果当前页除了页眉外已经有内容，
+     * section 从下一页开始。
+     * 如果当前页本身为空，也不要额外制造一页。
      */
+    const currentSections = currentPage.querySelectorAll(".section");
 
-    currentPage.removeChild(
-      candidate
-    );
-
-
-    let sectionPage =
-      currentPage;
-
-
-    let sectionEl =
-      sectionShell(
-        section.title
-      );
-
-
-    sectionPage.appendChild(
-      sectionEl
-    );
-
-
-    for(
-      const block
-      of section.blocks
-    ){
-
-      const body =
-        sectionEl.querySelector(
-          ".section-body"
-        );
-
-
-      const before =
-        body.innerHTML;
-
-
-      addBlockToSection(
-        sectionEl,
-        block
-      );
-
-
-      /*
-       * block 可以放下。
-       */
-
-      if(
-        !isOverflow(
-          sectionPage
-        )
-      ){
-
-        continue;
-
-      }
-
-
-      /*
-       * 当前 block 放不下。
-       */
-
-      body.innerHTML =
-        before;
-
-
-      /*
-       * 当前 section 已经有内容，
-       * 开新页。
-       */
-
-      if(
-        body.children.length
-      ){
-
-        pageIndex++;
-
-
-        currentPage =
-          createPage(
-            pageIndex
-          );
-
-
-        paper.appendChild(
-          currentPage
-        );
-
-
-        pagesOut.push(
-          currentPage
-        );
-
-
-        sectionEl =
-          sectionShell(
-            section.title
-          );
-
-
-        currentPage.appendChild(
-          sectionEl
-        );
-
-      }
-
-
-      /*
-       * 重新放 block。
-       */
-
-      addBlockToSection(
-        sectionEl,
-        block
-      );
-
-
-      /*
-       * 如果单个 block 仍然过大，
-       * 进一步按 bullet 拆分。
-       */
-
-      if(
-        isOverflow(
-          currentPage
-        )
-      ){
-
-        const newBody =
-          sectionEl.querySelector(
-            ".section-body"
-          );
-
-
-        newBody.innerHTML =
-          "";
-
-
-        if(block.head){
-
-          const headEl =
-            document.createElement(
-              "div"
-            );
-
-
-          headEl.className =
-            "item-head";
-
-
-          headEl.textContent =
-            block.head;
-
-
-          newBody.appendChild(
-            headEl
-          );
-
-        }
-
-
-        for(
-          const line
-          of block.lines || []
-        ){
-
-          const paragraph =
-            document.createElement(
-              "div"
-            );
-
-
-          paragraph.className =
-            "paragraph";
-
-
-          paragraph.textContent =
-            line;
-
-
-          newBody.appendChild(
-            paragraph
-          );
-
-
-          if(
-            isOverflow(
-              currentPage
-            )
-          ){
-
-            newBody.removeChild(
-              paragraph
-            );
-
-
-            pageIndex++;
-
-
-            currentPage =
-              createPage(
-                pageIndex
-              );
-
-
-            paper.appendChild(
-              currentPage
-            );
-
-
-            pagesOut.push(
-              currentPage
-            );
-
-
-            sectionEl =
-              sectionShell(
-                section.title
-              );
-
-
-            currentPage.appendChild(
-              sectionEl
-            );
-
-
-            const nextBody =
-              sectionEl.querySelector(
-                ".section-body"
-              );
-
-
-            const nextParagraph =
-              document.createElement(
-                "div"
-              );
-
-
-            nextParagraph.className =
-              "paragraph";
-
-
-            nextParagraph.textContent =
-              line;
-
-
-            nextBody.appendChild(
-              nextParagraph
-            );
-
-          }
-
-        }
-
-
-        for(
-          const bullet
-          of block.bullets || []
-        ){
-
-          let list =
-            sectionEl.querySelector(
-              ".section-body ul"
-            );
-
-
-          if(!list){
-
-            list =
-              document.createElement(
-                "ul"
-              );
-
-
-            sectionEl
-              .querySelector(
-                ".section-body"
-              )
-              .appendChild(
-                list
-              );
-
-          }
-
-
-          const li =
-            document.createElement(
-              "li"
-            );
-
-
-          li.textContent =
-            bullet;
-
-
-          list.appendChild(
-            li
-          );
-
-
-          if(
-            isOverflow(
-              currentPage
-            )
-          ){
-
-            list.removeChild(
-              li
-            );
-
-
-            pageIndex++;
-
-
-            currentPage =
-              createPage(
-                pageIndex
-              );
-
-
-            paper.appendChild(
-              currentPage
-            );
-
-
-            pagesOut.push(
-              currentPage
-            );
-
-
-            sectionEl =
-              sectionShell(
-                section.title
-              );
-
-
-            currentPage.appendChild(
-              sectionEl
-            );
-
-
-            const newList =
-              document.createElement(
-                "ul"
-              );
-
-
-            sectionEl
-              .querySelector(
-                ".section-body"
-              )
-              .appendChild(
-                newList
-              );
-
-
-            const newLi =
-              document.createElement(
-                "li"
-              );
-
-
-            newLi.textContent =
-              bullet;
-
-
-            newList.appendChild(
-              newLi
-            );
-
-          }
-
-        }
-
-      }
-
+    if(currentSections.length > 0){
+      currentPage = makeNewPage(pagesOut);
     }
 
-  }
+    let sectionEl = ensureSectionOnPage(currentPage,section);
 
+    /*
+     * section 标题本身如果放不下：
+     * 直接换到下一页，而不是留下空页。
+     */
+    if(isOverflow(currentPage)){
+      removeEmptySection(sectionEl);
+      currentPage = makeNewPage(pagesOut);
+      sectionEl = ensureSectionOnPage(currentPage,section);
+    }
+
+    for(const block of section.blocks){
+      currentPage = appendBlockUnits(
+        pagesOut,
+        currentPage,
+        section,
+        block
+      );
+    }
+  }
 
   /*
    * 两页模式最多两页。
+   * 与原版本保持一致：超出部分不继续显示。
    */
-
-  if(
-    state.pageMode ===
-    "two" &&
-    pagesOut.length > 2
-  ){
-
-    while(
-      pagesOut.length > 2
-    ){
-
-      const last =
-        pagesOut.pop();
-
-
+  if(state.pageMode === "two" && pagesOut.length > 2){
+    while(pagesOut.length > 2){
+      const last = pagesOut.pop();
       last.remove();
-
     }
-
   }
-
 
   /*
-   * 更新页码。
+   * 最终保险：
+   * 删除真正没有任何简历内容的中间页。
+   * 第一页允许只有页眉；其余页必须至少有 section。
    */
-
-  const finalPages =
-    Array.from(
-      paper.querySelectorAll(
-        ".resume-page"
-      )
-    );
-
-
-  finalPages.forEach(
-    (
-      page,
-      index
-    ) => {
-
-      const number =
-        page.querySelector(
-          ".page-number"
-        );
-
-
-      if(number){
-
-        number.textContent =
-          `${index + 1} / ${finalPages.length}`;
-
-      }
-
-    }
+  const finalPages = Array.from(
+    paper.querySelectorAll(".resume-page")
   );
 
+  finalPages.forEach((page,index) => {
+    const sections = page.querySelectorAll(".section");
+
+    if(index > 0 && sections.length === 0){
+      page.remove();
+    }
+  });
+
+  const remainingPages = Array.from(
+    paper.querySelectorAll(".resume-page")
+  );
+
+  remainingPages.forEach((page,index) => {
+    const number = page.querySelector(".page-number");
+    if(number){
+      number.textContent = `${index + 1} / ${remainingPages.length}`;
+    }
+  });
 
   finishPagination();
-
 }
-
 
 /* =========================================================
-   FONT
+   FONT / SCALE / THEME / TEMPLATE
 ========================================================= */
-
 function getFontFamily(){
-
-  switch(
-    state.font
-  ){
-
+  switch(state.font){
     case "yahei":
-
-      return `
-        "Microsoft YaHei",
-        "PingFang SC",
-        sans-serif
-      `;
-
-
+      return `"Microsoft YaHei","PingFang SC",sans-serif`;
     case "system":
-
-      return `
-        system-ui,
-        -apple-system,
-        BlinkMacSystemFont,
-        sans-serif
-      `;
-
-
-    case "pingfang":
-
+      return `system-ui,-apple-system,BlinkMacSystemFont,sans-serif`;
     default:
-
-      return `
-        -apple-system,
-        BlinkMacSystemFont,
-        "PingFang SC",
-        "Microsoft YaHei",
-        sans-serif
-      `;
-
+      return `-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif`;
   }
-
 }
-
 
 function applyFont(){
-
-  paper.style.fontFamily =
-    getFontFamily();
-
-
-  paper.style.fontSize =
-    `${Number(state.fontSize) || 13}px`;
-
-
-  if(sizeVal){
-
-    sizeVal.textContent =
-      `${Number(state.fontSize) || 13}`;
-
-  }
-
+  paper.style.fontFamily = getFontFamily();
+  paper.style.fontSize = `${Number(state.fontSize) || 13}px`;
+  if(sizeVal) sizeVal.textContent = `${Number(state.fontSize) || 13}`;
 }
-
-
-/* =========================================================
-   ZOOM
-========================================================= */
 
 function updateScale(){
-
-  paper.style.transform =
-    `scale(${state.zoom})`;
-
-
+  paper.style.transform = `scale(${state.zoom})`;
   if(zoomVal){
-
-    zoomVal.textContent =
-      `${Math.round(
-        state.zoom * 100
-      )}%`;
-
+    zoomVal.textContent = `${Math.round(state.zoom * 100)}%`;
   }
-
 }
-
-
-/* =========================================================
-   THEME
-========================================================= */
 
 function applyTheme(){
+  const theme = THEMES[state.theme] || THEMES.blue;
 
-  const theme =
-    THEMES[state.theme]
-    ||
-    THEMES.blue;
+  document.documentElement.style.setProperty("--accent",theme.main);
+  document.documentElement.style.setProperty("--accent-soft",theme.light);
 
-
-  document.documentElement
-    .style
-    .setProperty(
-      "--accent",
-      theme.main
-    );
-
-
-  document.documentElement
-    .style
-    .setProperty(
-      "--accent-soft",
-      theme.light
-    );
-
-
-  paper
-    .querySelectorAll(
-      ".resume-page"
-    )
-    .forEach(
-      page => {
-
-        page.style.setProperty(
-          "--accent",
-          theme.main
-        );
-
-
-        page.style.setProperty(
-          "--accent-soft",
-          theme.light
-        );
-
-      }
-    );
-
+  paper.querySelectorAll(".resume-page").forEach(page => {
+    page.style.setProperty("--accent",theme.main);
+    page.style.setProperty("--accent-soft",theme.light);
+  });
 }
-
-
-/* =========================================================
-   TEMPLATE
-========================================================= */
-
-const TEMPLATE_CLASSES = [
-
-  "tech",
-  "blue",
-  "minimal",
-  "terminal",
-  "grayblue",
-  "stripe",
-  "business",
-  "photo"
-
-];
-
 
 function applyTemplate(){
-
-  paper
-    .querySelectorAll(
-      ".resume-page"
-    )
-    .forEach(
-      page => {
-
-        TEMPLATE_CLASSES.forEach(
-          name => {
-
-            page.classList.remove(
-              name
-            );
-
-          }
-        );
-
-
-        page.classList.add(
-          state.template
-        );
-
-      }
-    );
-
+  paper.querySelectorAll(".resume-page").forEach(page => {
+    TEMPLATE_CLASSES.forEach(name => page.classList.remove(name));
+    page.classList.add(state.template);
+  });
 }
-
 
 /* =========================================================
    PHOTO
 ========================================================= */
-
 function getPhoto(){
-
   try{
-
-    return (
-      localStorage.getItem(
-        STORAGE.photo
-      )
-      ||
-      ""
-    );
-
+    return localStorage.getItem(STORAGE.photo) || "";
   }catch(error){
-
-    console.warn(
-      error
-    );
-
-
+    console.warn(error);
     return "";
-
   }
-
 }
-
 
 function renderPhotoPreview(){
+  if(!photoPreview) return;
 
-  if(!photoPreview){
-    return;
-  }
-
-
-  const photo =
-    getPhoto();
-
+  const photo = getPhoto();
 
   if(photo){
-
-    photoPreview.innerHTML =
-      `<img src="${photo}" alt="证件照">`;
-
-
-    photoPreview.style.display =
-      "block";
-
-
-    removePhotoBtn.disabled =
-      false;
-
+    photoPreview.innerHTML = `<img src="${photo}" alt="证件照">`;
+    photoPreview.style.display = "block";
+    removePhotoBtn.disabled = false;
   }else{
-
-    photoPreview.innerHTML =
-      "<span>证件照</span>";
-
-
-    photoPreview.style.display =
-      "flex";
-
-
-    removePhotoBtn.disabled =
-      true;
-
+    photoPreview.innerHTML = "<span>证件照</span>";
+    photoPreview.style.display = "flex";
+    removePhotoBtn.disabled = true;
   }
-
 }
 
-
 /* =========================================================
-   FINISH
+   SAVE / LOAD / RENDER
 ========================================================= */
-
 function finishPagination(){
-
   applyFont();
-
   applyTheme();
-
   applyTemplate();
-
   updateScale();
-
   save();
-
 }
-
-
-/* =========================================================
-   SAVE
-========================================================= */
 
 function save(){
-
   try{
+    localStorage.setItem(STORAGE.resume,source.value);
+    localStorage.setItem(STORAGE.state,JSON.stringify(state));
 
-    localStorage.setItem(
-      STORAGE.resume,
-      source.value
-    );
-
-
-    localStorage.setItem(
-      STORAGE.state,
-      JSON.stringify(
-        state
-      )
-    );
-
-
-    if(saveState){
-
-      saveState.textContent =
-        "已保存";
-
-    }
-
+    if(saveState) saveState.textContent = "已保存";
   }catch(error){
-
-    console.warn(
-      "保存失败",
-      error
-    );
-
+    console.warn("保存失败",error);
   }
-
 }
-
-
-/* =========================================================
-   LOAD
-========================================================= */
 
 function syncControls(){
+  pages.value = state.pageMode;
+  photoMode.value = state.showPhoto ? "show" : "hide";
+  font.value = state.font;
+  size.value = state.fontSize;
+  zoom.value = state.zoom;
 
-  pages.value =
-    state.pageMode;
+  templates.querySelectorAll("[data-t]").forEach(button => {
+    button.classList.toggle("active",button.dataset.t === state.template);
+  });
 
-
-  photoMode.value =
-    state.showPhoto
-      ?
-      "show"
-      :
-      "hide";
-
-
-  font.value =
-    state.font;
-
-
-  size.value =
-    state.fontSize;
-
-
-  zoom.value =
-    state.zoom;
-
-
-  templates
-    .querySelectorAll(
-      "[data-t]"
-    )
-    .forEach(
-      button => {
-
-        button.classList.toggle(
-          "active",
-          button.dataset.t ===
-          state.template
-        );
-
-      }
-    );
-
-
-  themes
-    .querySelectorAll(
-      "[data-theme]"
-    )
-    .forEach(
-      button => {
-
-        button.classList.toggle(
-          "active",
-          button.dataset.theme ===
-          state.theme
-        );
-
-      }
-    );
-
+  themes.querySelectorAll("[data-theme]").forEach(button => {
+    button.classList.toggle("active",button.dataset.theme === state.theme);
+  });
 }
-
 
 function load(){
-
   try{
-
-    const savedState =
-      localStorage.getItem(
-        STORAGE.state
-      );
-
+    const savedState = localStorage.getItem(STORAGE.state);
 
     if(savedState){
-
       state = {
-
         ...DEFAULT_STATE,
-
-        ...JSON.parse(
-          savedState
-        )
-
+        ...JSON.parse(savedState)
       };
-
     }
 
-
-    const savedResume =
-      localStorage.getItem(
-        STORAGE.resume
-      );
-
-
-    source.value =
-      savedResume
-      ||
-      DEMO_MD;
-
-
+    const savedResume = localStorage.getItem(STORAGE.resume);
+    source.value = savedResume || DEMO_MD;
   }catch(error){
-
-    console.warn(
-      "加载状态失败",
-      error
-    );
-
-
-    state = {
-      ...DEFAULT_STATE
-    };
-
-
-    source.value =
-      DEMO_MD;
-
+    console.warn("加载状态失败",error);
+    state = {...DEFAULT_STATE};
+    source.value = DEMO_MD;
   }
-
 
   syncControls();
-
   renderPhotoPreview();
-
   render();
-
 }
-
-
-/* =========================================================
-   RENDER
-========================================================= */
 
 function render(){
-
   try{
-
-    resumeData =
-      parseInput(
-        source.value
-      );
-
-
+    resumeData = parseInput(source.value);
     paginate();
-
   }catch(error){
-
-    console.error(
-      "渲染失败",
-      error
-    );
-
-
-    alert(
-      "简历渲染失败，请检查输入内容。"
-    );
-
+    console.error("渲染失败",error);
+    alert("简历渲染失败，请检查输入内容。");
   }
-
 }
-
 
 /* =========================================================
    FILE
 ========================================================= */
-
 function readFile(file){
+  if(!file) return;
 
-  if(!file){
-    return;
-  }
+  const reader = new FileReader();
 
+  reader.onload = event => {
+    source.value = event.target.result || "";
+    render();
+    save();
+  };
 
-  const reader =
-    new FileReader();
-
-
-  reader.onload =
-    event => {
-
-      source.value =
-        event.target.result
-        ||
-        "";
-
-
-      render();
-
-      save();
-
-    };
-
-
-  reader.onerror =
-    () => {
-
-      alert(
-        "文件读取失败。"
-      );
-
-    };
-
-
-  reader.readAsText(
-    file,
-    "UTF-8"
-  );
-
+  reader.onerror = () => alert("文件读取失败。");
+  reader.readAsText(file,"UTF-8");
 }
-
-
-/* =========================================================
-   PHOTO FILE
-========================================================= */
 
 function readPhoto(file){
+  if(!file) return;
 
-  if(!file){
+  if(!file.type.startsWith("image/")){
+    alert("请选择 JPG、PNG 或 WebP 图片。");
     return;
   }
 
+  const reader = new FileReader();
 
-  if(
-    !file.type.startsWith(
-      "image/"
-    )
-  ){
-
-    alert(
-      "请选择 JPG、PNG 或 WebP 图片。"
-    );
-
-
-    return;
-
-  }
-
-
-  const reader =
-    new FileReader();
-
-
-  reader.onload =
-    event => {
-
-      try{
-
-        localStorage.setItem(
-          STORAGE.photo,
-          event.target.result
-        );
-
-
-        renderPhotoPreview();
-
-        render();
-
-        save();
-
-      }catch(error){
-
-        alert(
-          "证件照保存失败，图片可能过大。"
-        );
-
-      }
-
-    };
-
-
-  reader.readAsDataURL(
-    file
-  );
-
-}
-
-
-/* =========================================================
-   PRINT CSS
-========================================================= */
-
-function getScreenCSS(){
-
-  let css =
-    "";
-
-
-  Array.from(
-    document.styleSheets
-  ).forEach(
-    sheet => {
-
-      try{
-
-        Array.from(
-          sheet.cssRules || []
-        ).forEach(
-          rule => {
-
-            /*
-             * 不复制 print media。
-             */
-
-            if(
-              rule.type ===
-              CSSRule.MEDIA_RULE
-            ){
-
-              const condition =
-                String(
-                  rule.conditionText
-                  ||
-                  ""
-                )
-                .toLowerCase();
-
-
-              if(
-                condition.includes(
-                  "print"
-                )
-              ){
-
-                return;
-
-              }
-
-            }
-
-
-            css +=
-              rule.cssText +
-              "\n";
-
-          }
-        );
-
-      }catch(error){
-
-        console.warn(
-          "读取CSS失败",
-          error
-        );
-
-      }
-
+  reader.onload = event => {
+    try{
+      localStorage.setItem(STORAGE.photo,event.target.result);
+      renderPhotoPreview();
+      render();
+      save();
+    }catch(error){
+      alert("证件照保存失败，图片可能过大。");
     }
-  );
+  };
 
-
-  return css;
-
+  reader.readAsDataURL(file);
 }
-
 
 /* =========================================================
    PRINT
 ========================================================= */
+function getScreenCSS(){
+  let css = "";
+
+  Array.from(document.styleSheets).forEach(sheet => {
+    try{
+      Array.from(sheet.cssRules || []).forEach(rule => {
+        if(rule.type === CSSRule.MEDIA_RULE){
+          const condition = String(rule.conditionText || "").toLowerCase();
+          if(condition.includes("print")) return;
+        }
+        css += rule.cssText + "\n";
+              });
+    }catch(error){
+      console.warn("读取CSS失败",error);
+    }
+  });
+
+  return css;
+}
 
 function printResume(){
-
-  if(
-    !source.value.trim()
-  ){
-
-    alert(
-      "请先导入或粘贴简历。"
-    );
-
-
+  if(!source.value.trim()){
+    alert("请先导入或粘贴简历。");
     return;
-
   }
-
-
-  /*
-   * 先确保预览是最新状态。
-   */
 
   render();
 
-
-  /*
-   * 必须在用户点击同步阶段创建窗口。
-   */
-
-  const printWindow =
-    window.open(
-      "",
-      "_blank"
-    );
-
+  const printWindow = window.open("","_blank");
 
   if(!printWindow){
-
-    alert(
-      "浏览器阻止了新窗口，请允许打开新窗口后重试。"
-    );
-
-
+    alert("浏览器阻止了新窗口，请允许打开新窗口后重试。");
     return;
-
   }
 
+  const pagesToPrint = Array.from(
+    paper.querySelectorAll(".resume-page")
+  );
 
-  const pagesToPrint =
-    Array.from(
-      paper.querySelectorAll(
-        ".resume-page"
-      )
-    );
-
-
-  if(
-    !pagesToPrint.length
-  ){
-
+  if(!pagesToPrint.length){
     printWindow.close();
-
-
-    alert(
-      "没有可打印的简历页面。"
-    );
-
-
+    alert("没有可打印的简历页面。");
     return;
-
   }
 
+  const screenCSS = getScreenCSS();
 
-  const screenCSS =
-    getScreenCSS();
+  const pagesHTML = pagesToPrint.map((page,index) => {
+    const clone = page.cloneNode(true);
 
+    clone.querySelectorAll(".page-number").forEach(node => node.remove());
+    clone.classList.add("print-page");
+    clone.dataset.printPage = index + 1;
 
-  const pagesHTML =
-    pagesToPrint
-      .map(
-        (
-          page,
-          index
-        ) => {
-
-          const clone =
-            page.cloneNode(
-              true
-            );
-
-
-          clone
-            .querySelectorAll(
-              ".page-number"
-            )
-            .forEach(
-              node =>
-                node.remove()
-            );
-
-
-          clone.classList.add(
-            "print-page"
-          );
-
-
-          clone.dataset.printPage =
-            index + 1;
-
-
-          return clone.outerHTML;
-
-        }
-      )
-      .join(
-        "\n"
-      );
-
+    return clone.outerHTML;
+  }).join("\n");
 
   const printCSS = `
-
     @page{
-
       size:A4 portrait;
-
       margin:0;
-
     }
 
-
-    html{
-
+    html,body{
       margin:0 !important;
-
       padding:0 !important;
-
       width:210mm !important;
-
       background:#fff !important;
-
     }
-
 
     body{
-
-      margin:0 !important;
-
-      padding:0 !important;
-
-      width:210mm !important;
-
-      background:#fff !important;
-
+      overflow:visible !important;
       font-family:${getFontFamily()};
-
     }
-
-
-    /*
-     * 一张预览页 = 一张打印页。
-     *
-     * 使用296mm而不是297mm，
-     * 给浏览器物理分页留出极小余量。
-     */
 
     .resume-page.print-page{
-
       width:210mm !important;
-
       height:296mm !important;
-
       min-width:210mm !important;
-
       max-width:210mm !important;
-
       min-height:296mm !important;
-
       max-height:296mm !important;
-
       margin:0 !important;
-
       box-sizing:border-box !important;
-
       position:relative !important;
-
       display:block !important;
-
       overflow:hidden !important;
-
       background:#fff !important;
-
       box-shadow:none !important;
-
       transform:none !important;
-
       flex:none !important;
-
       float:none !important;
-
       zoom:1 !important;
-
       page-break-inside:avoid !important;
-
       break-inside:avoid !important;
-
     }
-
-
-    /*
-     * 只使用现代 break-after。
-     *
-     * 不同时设置 page-break-after。
-     */
 
     .resume-page.print-page:not(:last-child){
-
       break-after:page !important;
-
     }
-
 
     .resume-page.print-page:last-child{
-
       break-after:auto !important;
-
     }
 
-
-    .resume-page.print-page
-    .page-number{
-
+    .resume-page.print-page .page-number{
       display:none !important;
-
     }
-
-
-    .resume-page.print-page
-    .section{
-
-      break-inside:avoid;
-
-      page-break-inside:avoid;
-
-    }
-
-
-    .resume-page.print-page
-    .item-head{
-
-      break-after:avoid;
-
-    }
-
 
     img{
-
       -webkit-print-color-adjust:exact !important;
-
       print-color-adjust:exact !important;
-
     }
-
 
     .resume-page.print-page{
-
       -webkit-print-color-adjust:exact !important;
-
       print-color-adjust:exact !important;
-
     }
-
 
     .resume-page.print-page.page-one{
-
       padding-top:43px !important;
-
       padding-bottom:40px !important;
-
     }
-
 
     .resume-page.print-page.minimal{
-
       padding:48px 58px !important;
-
     }
-
 
     .resume-page.print-page.stripe{
-
       padding-left:58px !important;
-
     }
-
   `;
-
 
   printWindow.document.open();
 
-
   printWindow.document.write(`
-
 <!doctype html>
-
 <html lang="zh-CN">
-
 <head>
-
 <meta charset="utf-8">
-
-<meta
-  name="viewport"
-  content="width=device-width,initial-scale=1"
->
-
+<meta name="viewport" content="width=device-width,initial-scale=1">
 <title>ResumeFlow PDF</title>
-
-<style>
-
-${screenCSS}
-
-</style>
-
-<style>
-
-${printCSS}
-
-</style>
-
+<style>${screenCSS}</style>
+<style>${printCSS}</style>
 </head>
-
-<body>
-
-${pagesHTML}
-
-</body>
-
+<body>${pagesHTML}</body>
 </html>
-
   `);
-
 
   printWindow.document.close();
 
+  const waitImages = Array.from(printWindow.document.images || []);
 
-  /*
-   * 等图片加载。
-   */
+  Promise.all(waitImages.map(image => {
+    if(image.complete) return Promise.resolve();
 
-  const waitImages =
-    Array.from(
-      printWindow.document.images
-      || []
-    );
-
-
-  Promise.all(
-
-    waitImages.map(
-      image => {
-
-        if(
-          image.complete
-        ){
-
-          return Promise.resolve();
-
+    return new Promise(resolve => {
+      image.addEventListener("load",resolve,{once:true});
+      image.addEventListener("error",resolve,{once:true});
+    });
+  })).then(() => {
+    printWindow.requestAnimationFrame(() => {
+      printWindow.requestAnimationFrame(() => {
+        try{
+          printWindow.focus();
+          printWindow.print();
+        }catch(error){
+          console.error("打印失败",error);
+          alert("打印窗口已经打开，请在新窗口中手动打印。");
         }
-
-
-        return new Promise(
-          resolve => {
-
-            image.addEventListener(
-              "load",
-              resolve,
-              {
-                once:true
-              }
-            );
-
-
-            image.addEventListener(
-              "error",
-              resolve,
-              {
-                once:true
-              }
-            );
-
-          }
-        );
-
-      }
-    )
-
-  )
-  .then(
-    () => {
-
-      /*
-       * 等两个动画帧完成 layout。
-       */
-
-      printWindow.requestAnimationFrame(
-        () => {
-
-          printWindow.requestAnimationFrame(
-            () => {
-
-              try{
-
-                printWindow.focus();
-
-                printWindow.print();
-
-              }catch(error){
-
-                console.error(
-                  "打印失败",
-                  error
-                );
-
-                alert(
-                  "打印窗口已经打开，请在新窗口中手动打印。"
-                );
-
-              }
-
-            }
-          );
-
-        }
-      );
-
-    }
-  );
-
+      });
+    });
+  });
 }
-
 
 /* =========================================================
    EVENTS
 ========================================================= */
+demoBtn.addEventListener("click",() => {
+  source.value = DEMO_MD;
+  render();
+  save();
+});
 
+pdfBtn.addEventListener("click",printResume);
 
-/*
- * 示例
- */
+renderBtn.addEventListener("click",() => {
+  render();
+  save();
+});
 
-demoBtn.addEventListener(
-  "click",
-  () => {
+clearBtn.addEventListener("click",() => {
+  source.value = "";
+  resumeData = null;
+  paper.innerHTML = "";
+  save();
+});
 
-    source.value =
-      DEMO_MD;
+fileBtn.addEventListener("click",() => fileInput.click());
 
+fileInput.addEventListener("change",event => {
+  const file = event.target.files?.[0];
+  if(file) readFile(file);
+  event.target.value = "";
+});
+
+dropZone.addEventListener("dragover",event => {
+  event.preventDefault();
+  dropZone.classList.add("drag");
+});
+
+dropZone.addEventListener("dragleave",() => {
+  dropZone.classList.remove("drag");
+});
+
+dropZone.addEventListener("drop",event => {
+  event.preventDefault();
+  dropZone.classList.remove("drag");
+
+  const file = event.dataTransfer?.files?.[0];
+  if(file) readFile(file);
+});
+
+photoBtn.addEventListener("click",() => photoFile.click());
+
+photoFile.addEventListener("change",event => {
+  const file = event.target.files?.[0];
+  if(file) readPhoto(file);
+  event.target.value = "";
+});
+
+removePhotoBtn.addEventListener("click",() => {
+  localStorage.removeItem(STORAGE.photo);
+  renderPhotoPreview();
+  render();
+  save();
+});
+
+templates.querySelectorAll("[data-t]").forEach(button => {
+  button.addEventListener("click",() => {
+    state.template = button.dataset.t;
+
+    templates.querySelectorAll("[data-t]").forEach(item => {
+      item.classList.toggle("active",item === button);
+    });
 
     render();
-
     save();
+  });
+});
 
-  }
-);
+themes.querySelectorAll("[data-theme]").forEach(button => {
+  button.addEventListener("click",() => {
+    state.theme = button.dataset.theme;
 
-
-/*
- * PDF
- */
-
-pdfBtn.addEventListener(
-  "click",
-  () => {
-
-    printResume();
-
-  }
-);
-
-
-/*
- * 生成预览
- */
-
-renderBtn.addEventListener(
-  "click",
-  () => {
+    themes.querySelectorAll("[data-theme]").forEach(item => {
+      item.classList.toggle("active",item === button);
+    });
 
     render();
-
     save();
+  });
+});
 
-  }
-);
+pages.addEventListener("change",() => {
+  state.pageMode = pages.value;
+  render();
+  save();
+});
 
+photoMode.addEventListener("change",() => {
+  state.showPhoto = photoMode.value === "show";
+  render();
+  save();
+});
 
-/*
- * 清空
- */
+font.addEventListener("change",() => {
+  state.font = font.value;
+  applyFont();
+  save();
+});
 
-clearBtn.addEventListener(
-  "click",
-  () => {
+size.addEventListener("input",() => {
+  state.fontSize = Number(size.value);
+  applyFont();
+  save();
+});
 
-    source.value =
-      "";
+zoom.addEventListener("input",() => {
+  state.zoom = Number(zoom.value);
+  updateScale();
+  save();
+});
 
+let saveTimer = null;
 
-    resumeData =
-      null;
+source.addEventListener("input",() => {
+  clearTimeout(saveTimer);
 
-
-    paper.innerHTML =
-      "";
-
-
+  saveTimer = setTimeout(() => {
     save();
-
-  }
-);
-
-
-/*
- * 文件
- */
-
-fileBtn.addEventListener(
-  "click",
-  () => {
-
-    fileInput.click();
-
-  }
-);
-
-
-fileInput.addEventListener(
-  "change",
-  event => {
-
-    const file =
-      event.target.files?.[0];
-
-
-    if(file){
-
-      readFile(
-        file
-      );
-
-    }
-
-
-    event.target.value =
-      "";
-
-  }
-);
-
-
-/*
- * 拖拽
- */
-
-dropZone.addEventListener(
-  "dragover",
-  event => {
-
-    event.preventDefault();
-
-    dropZone.classList.add(
-      "dragover"
-    );
-
-  }
-);
-
-
-dropZone.addEventListener(
-  "dragleave",
-  () => {
-
-    dropZone.classList.remove(
-      "dragover"
-    );
-
-  }
-);
-
-
-dropZone.addEventListener(
-  "drop",
-  event => {
-
-    event.preventDefault();
-
-
-    dropZone.classList.remove(
-      "dragover"
-    );
-
-
-    const file =
-      event.dataTransfer
-        ?.files?.[0];
-
-
-    if(file){
-
-      readFile(
-        file
-      );
-
-    }
-
-  }
-);
-
-
-/*
- * 证件照
- */
-
-photoBtn.addEventListener(
-  "click",
-  () => {
-
-    photoFile.click();
-
-  }
-);
-
-
-photoFile.addEventListener(
-  "change",
-  event => {
-
-    const file =
-      event.target.files?.[0];
-
-
-    if(file){
-
-      readPhoto(
-        file
-      );
-
-    }
-
-
-    event.target.value =
-      "";
-
-  }
-);
-
-
-removePhotoBtn.addEventListener(
-  "click",
-  () => {
-
-    localStorage.removeItem(
-      STORAGE.photo
-    );
-
-
-    renderPhotoPreview();
-
-    render();
-
-    save();
-
-  }
-);
-
-
-/*
- * 模板
- *
- * 注意：
- * templates 是 div，
- * 不是 select。
- */
-
-templates
-  .querySelectorAll(
-    "[data-t]"
-  )
-  .forEach(
-    button => {
-
-      button.addEventListener(
-        "click",
-        () => {
-
-          state.template =
-            button.dataset.t;
-
-
-          templates
-            .querySelectorAll(
-              "[data-t]"
-            )
-            .forEach(
-              item => {
-
-                item.classList.toggle(
-                  "active",
-                  item === button
-                );
-
-              }
-            );
-
-
-          render();
-
-          save();
-
-        }
-      );
-
-    }
-  );
-
-
-/*
- * 主题
- *
- * 注意：
- * themes 是 div，
- * 不是 select。
- */
-
-themes
-  .querySelectorAll(
-    "[data-theme]"
-  )
-  .forEach(
-    button => {
-
-      button.addEventListener(
-        "click",
-        () => {
-
-          state.theme =
-            button.dataset.theme;
-
-
-          themes
-            .querySelectorAll(
-              "[data-theme]"
-            )
-            .forEach(
-              item => {
-
-                item.classList.toggle(
-                  "active",
-                  item === button
-                );
-
-              }
-            );
-
-
-          render();
-
-          save();
-
-        }
-      );
-
-    }
-  );
-
-
-/*
- * 分页
- */
-
-pages.addEventListener(
-  "change",
-  () => {
-
-    state.pageMode =
-      pages.value;
-
-
-    render();
-
-    save();
-
-  }
-);
-
-
-/*
- * 证件照显示
- */
-
-photoMode.addEventListener(
-  "change",
-  () => {
-
-    state.showPhoto =
-      photoMode.value ===
-      "show";
-
-
-    render();
-
-    save();
-
-  }
-);
-
-
-/*
- * 字体
- */
-
-font.addEventListener(
-  "change",
-  () => {
-
-    state.font =
-      font.value;
-
-
-    applyFont();
-
-    save();
-
-  }
-);
-
-
-/*
- * 字号
- */
-
-size.addEventListener(
-  "input",
-  () => {
-
-    state.fontSize =
-      Number(
-        size.value
-      );
-
-
-    applyFont();
-
-    save();
-
-  }
-);
-
-
-/*
- * 缩放
- */
-
-zoom.addEventListener(
-  "input",
-  () => {
-
-    state.zoom =
-      Number(
-        zoom.value
-      );
-
-
-    updateScale();
-
-    save();
-
-  }
-);
-
-
-/*
- * 自动保存
- */
-
-let saveTimer =
-  null;
-
-
-source.addEventListener(
-  "input",
-  () => {
-
-    clearTimeout(
-      saveTimer
-    );
-
-
-    saveTimer =
-      setTimeout(
-        () => {
-
-          save();
-
-        },
-        300
-      );
-
-  }
-);
-
+  },300);
+});
 
 /* =========================================================
    PWA
 ========================================================= */
-
-if(
-  "serviceWorker"
-  in navigator
-){
-
-  window.addEventListener(
-    "load",
-    () => {
-
-      navigator.serviceWorker
-        .register(
-          "./sw.js?v=1.4.2"
-        )
-        .catch(
-          error => {
-
-            console.warn(
-              "Service Worker注册失败",
-              error
-            );
-
-          }
-        );
-
-    }
-  );
-
+if("serviceWorker" in navigator){
+  window.addEventListener("load",() => {
+    navigator.serviceWorker.register("./sw.js?v=1.4.3").catch(error => {
+      console.warn("Service Worker注册失败",error);
+    });
+  });
 }
-
 
 /* =========================================================
    START
 ========================================================= */
-
 load();
-
 
 })();
